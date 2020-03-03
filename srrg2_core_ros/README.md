@@ -11,10 +11,14 @@ All our software is tested both with Ubuntu 18.04 and 16.04 (GCC 5 and 7), still
 
 The steps are the following:
 
-1. build the `srrg2_core` package following the `readme`
+1. build the `srrg2_core` package following the guide in its [`readme`](../srrg2_core)
 2. install ROS referring to the [official guide](http://wiki.ros.org/ROS/Installation) [**MANDATORY**]
-3. link this package in `<srrg2_core_ws>/src`
-4. build using Catkin (we recommend using `catkin build`)
+3. link this package in your workspace
+4. build using Catkin
+```bash
+cd <SRRG2_WS_ROOT>
+catkin build srrg2_core_ros
+```
 
 ## How to use
 The message readers/sorter/synchronizer expose the same API as their base class in the `srrg2_core` package, therefore no explicit examples are provided here.

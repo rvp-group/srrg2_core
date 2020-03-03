@@ -40,10 +40,45 @@ sudo apt install \
   arduino-mk \
   python-catkin-tools
 ```
+
 2. install ROS following the [official guide](http://wiki.ros.org/ROS/Installation) [OPTIONAL]
-3. create a new catkin workspace
-4. link this package in `<your_catkin_ws>/src`
-5. build (we suggest using `catkin build`)
+
+3. create a source folder for all the `srrg2` repositories (that we will refer to as `SRRG2_SOURCE_ROOT`)
+```bash
+cd <somewhere>/<on>/<your>/<computer>
+mkdir -p source/srrg2
+```
+
+4. clone our [repository](https://github.com/srrg-sapienza/srrg2_cmake_modules) containing all cmake-modules
+```bash
+cd <SRRG2_SOURCE_ROOT>
+git clone https://github.com/srrg-sapienza/srrg2_cmake_modules.git
+```
+
+5. clone this repository in `SRRG2_SOURCE_ROOT`
+```bash
+cd <SRRG2_SOURCE_ROOT>
+git clone https://github.com/srrg-sapienza/srrg2_core.git
+```
+
+6. create a new catkin workspace (that we will refer to as `SRRG2_WS_ROOT`)
+```bash
+cd <somewhere>/<on>/<your>/<computer>
+mkdir -p workspaces/srrg2/src
+```
+
+7. link the required Catkin packages in your `srrg2` workspace
+```bash
+cd <SRRG2_WS_ROOT>/src
+ln -s <SRRG2_SOURCE_ROOT>/srrg2_cmake_modules .
+ln -s <SRRG2_SOURCE_ROOT>/srrg2_core/srrg2_core .
+```
+
+8. build this package
+```bash
+cd <SRRG2_WS_ROOT>
+catkin build srrg2_core
+```
 
 ## How to use
 We also provide some self-explanatory examples of the tools included in this package.
