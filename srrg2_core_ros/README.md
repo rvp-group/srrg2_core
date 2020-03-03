@@ -7,7 +7,7 @@ This package contains all ROS-dependent components of `srrg2` core libraries and
 * core functionalities of our multi-process viewing system
 
 ## How to build
-All our software is tested both with Ubuntu 18.04 and 16.04 (GCC 5 and 7), still the remaining of this guide refers to Ubuntu 18.04,
+All our software is tested both with Ubuntu 18.04 and 16.04 (GCC 5 and 7), still the remaining of this guide refers to Ubuntu 18.04.
 
 The steps are the following:
 

@@ -21,7 +21,7 @@ The build requirements are rather minimal.
 - SuiteSparse
 - Miscellaneous deb packages
 
-All our software is tested both with Ubuntu 18.04 and 16.04 (GCC 5 and 7), still the remaining of this guide refers to Ubuntu 18.04,
+All our software is tested both with Ubuntu 18.04 and 16.04 (GCC 5 and 7), still the remaining of this guide refers to Ubuntu 18.04.
 
 The required steps are the following:
 1. install deb packages
