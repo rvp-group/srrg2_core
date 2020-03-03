@@ -1,20 +1,11 @@
-# [SRRG2 CORE](srrg2_core) 
+# SRRG2-CORE
+This repository contains two packages:
 
-This package contains some essential libraries and utilities extensively used in
-the SRRG repos. These include:
-* base defines (2D/3D transforms, points, elementary linear algebra operations)
-* base system utilities (monitoring the CPU frequency of a module, printing a banner)
-* reading/writing text formatted log files (txt_io)
-* computing 2D distance maps for nearest neighbor search
-* computing KD trees for nn search in multidimensional spaces
-* drawing lines on a 2D map
+  1. [SRRG2-CORE](srrg2_core): core functionalities for all other `srrg2` packages.
+  Minimal dependencies required.
+  2. [SRRG2-CORE-ROS](srrg2_core_ros): ROS-dependent functionalities, used in all other srrg2 packages.
 
-Besides the libraries, the package provides also a set of utilities
-to convert and merge text based log files plus simple image processing tools
-
-# [SRRG2 CORE ROS](srrg2_core_ros) 
-
-This package contains all ROS-dependent components of essential SRRG2 libraries and utilities.
+To know more about those packages, refer to the `readme` file in the respective packages.
 
 ## Contributors
 * Giorgio Grisetti
@@ -25,5 +16,4 @@ This package contains all ROS-dependent components of essential SRRG2 libraries 
 * Tiziano Guadagnino
 
 ## License
-
 BSD 3.0
