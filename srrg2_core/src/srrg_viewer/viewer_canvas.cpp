@@ -408,17 +408,17 @@ namespace srrg2_core {
     copy.reserve(points_.size());
     for (const auto& p : points_) {
       PointNormalColor3f copy_p;
-      Vector3f color = Vector3f::Zero();
+      Vector3f color       = Vector3f::Zero();
       copy_p.coordinates() = p.coordinates();
       copy_p.normal()      = p.normal();
-      if(p.curvature() < 0.25){
+      if (p.curvature() < 0.25) {
         color = ColorPalette::color3fWhite();
-      } else if(p.curvature() < 0.75){
+      } else if (p.curvature() < 0.75) {
         color = ColorPalette::color3fLightGray();
       } else {
         color = ColorPalette::color3fBlack();
       }
-      copy_p.color()       = color;
+      copy_p.color() = color;
       copy.emplace_back(copy_p);
     }
 
@@ -438,6 +438,9 @@ namespace srrg2_core {
     copy.reserve(points_.size());
 
     for (auto it = points_.begin(); it != points_.end(); ++it) {
+      if (it->status == POINT_STATUS::Invalid) {
+        continue;
+      }
       Point3f copy_p;
       copy_p.coordinates() = it->coordinates();
       copy.emplace_back(copy_p);

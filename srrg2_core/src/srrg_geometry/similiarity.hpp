@@ -10,6 +10,7 @@ namespace srrg2_core {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     static constexpr int Dim       = Dim_;
     static constexpr int MatrixDim = Dim + 1;
+    using Index                    = Eigen::Index;
     using Scalar                   = Scalar_;
     using ThisType                 = Similiarity_<Scalar, Dim>;
     using MatrixType               = Eigen::Matrix<Scalar, MatrixDim, MatrixDim>;
@@ -31,20 +32,11 @@ namespace srrg2_core {
     }
 
     //! @brief ldg copy construction, allows direct initialization
-    Similiarity_(Similiarity_& other) {
+    Similiarity_(const Similiarity_& other) {
       _matrix.setIdentity();
       this->linear()         = other.linear();
       this->translation()    = other.translation();
       this->inverseScaling() = other.inverseScaling();
-    }
-
-    //! @brief ldg moving construction, still debugging
-    Similiarity_(Similiarity_&& other) {
-      std::cerr << "Similiarity_::DEBUGGING: Call move constructor!" << std::endl;
-      _matrix.setIdentity();
-      this->linear()         = std::move(other.linear());
-      this->translation()    = std::move(other.translation());
-      this->inverseScaling() = std::move(other.inverseScaling());
     }
 
     static ThisType Identity() {
@@ -112,8 +104,8 @@ namespace srrg2_core {
       inverse_sim.setIdentity();
       inverse_sim.linear() = this->linear().transpose();
       inverse_sim.translation() =
-        -1.f / this->inverseScaling() * inverse_sim.linear() * this->translation();
-      inverse_sim.inverseScaling() = 1.f / this->inverseScaling();
+        -Scalar(1) / this->inverseScaling() * (inverse_sim.linear() * this->translation());
+      inverse_sim.inverseScaling() = Scalar(1) / this->inverseScaling();
       return inverse_sim;
     }
 
@@ -133,7 +125,7 @@ namespace srrg2_core {
     //! @brief ldg multiply operator similiarity * vector
     VectorType operator*(const VectorType& other) const {
       VectorType result;
-      result = 1.f / this->inverseScaling() * this->linear() * (other + this->translation());
+      result = Scalar(1) / this->inverseScaling() * (this->linear() * other + this->translation());
       return result;
     }
 
@@ -145,19 +137,26 @@ namespace srrg2_core {
       return *this;
     }
 
-    //! @brief ldg equal moving operator, copy similiarities
-    ThisType& operator=(ThisType&& other) noexcept {
-      std::cerr << "Similiarity_::DEBUGGING: Call move equal operator!" << std::endl;
-      this->linear()         = std::move(other.linear());
-      this->translation()    = std::move(other.translation());
-      this->inverseScaling() = std::move(other.inverseScaling());
-      return *this;
-    }
-
     //! @brief ldg multiply operator between similiarities, write result on current sim
     ThisType& operator*=(const ThisType& other) {
       *this = *this * other;
       return *this;
+    }
+
+    Scalar& operator()(Index row, Index col) {
+      return _matrix(row, col);
+    }
+
+    Scalar operator()(Index row, Index col) const {
+      return _matrix(row, col);
+    }
+
+    Index rows() const {
+      return _matrix.rows();
+    }
+
+    Index cols() const {
+      return _matrix.cols();
     }
 
   protected:

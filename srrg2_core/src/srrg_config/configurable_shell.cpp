@@ -110,6 +110,38 @@ namespace srrg2_core {
     }
   };
 
+  struct CommandDLConfig : public ConfigurableShell::CommandBase {
+    CommandDLConfig(ConfigurableShell* shell_) :
+      ConfigurableShell::CommandBase(
+        shell_,
+        "dl_config",
+        "dl_config <filename>, dynamically loads a library from a stub file") {
+    }
+
+    virtual ~CommandDLConfig() {
+    }
+
+    void completions(StringVector& completions, const StringVector& args) override {
+      completions.clear();
+      if (args.size() > 1) {
+        return;
+      }
+      shell->confFileCompletion(completions, args[0]);
+    }
+
+    bool execute(const std::vector<std::string>& args) override {
+      if (args.size() != 1) {
+        return false;
+      }
+      std::string filepath(args[0]);
+      filepath.erase(std::remove(filepath.begin(), filepath.end(), '\''), filepath.end());
+      filepath.erase(std::remove(filepath.begin(), filepath.end(), '"'), filepath.end());
+      std::cerr << "opening library [" << FG_YELLOW(filepath) << "]" << std::endl;
+      ConfigurableManager::initFactory(filepath);
+      return true;
+    }
+  };
+
   struct CommandDLOpen : public ConfigurableShell::CommandBase {
     CommandDLOpen(ConfigurableShell* shell_) :
       ConfigurableShell::CommandBase(shell_,
@@ -684,7 +716,7 @@ namespace srrg2_core {
 
     static void resumeRunner() {
       if (instance) {
-        instance->requires_platform = true;
+        // instance->requires_platform = true;
         swapcontext(&shell_context, &runner_context);
       }
     }
@@ -1152,6 +1184,7 @@ namespace srrg2_core {
     addCommand(new CommandPwd(this));
     addCommand(new CommandLs(this));
     addCommand(new CommandCd(this));
+    addCommand(new CommandDLConfig(this));
     addCommand(new CommandDLOpen(this));
     addCommand(new CommandOpen(this));
     addCommand(new CommandQuit(this));
@@ -1171,7 +1204,7 @@ namespace srrg2_core {
     addCommand(new CommandForeground(this));
   }
 
-  ConfigurableShell::ConfigurableShell() {
+  ConfigurableShell::ConfigurableShell(ConfigurableManager& manager_) : _manager(manager_) {
     _manager.initFactory();
     std::vector<std::string> types;
     for (auto s : types) {

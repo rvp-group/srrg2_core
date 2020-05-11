@@ -30,29 +30,30 @@ namespace srrg2_core {
   }
 
   BaseSensorMessagePtr MessageSynchronizedSource::getMessage() {
+    //    std::cerr << __PRETTY_FUNCTION__ << std::endl;
     assert(param_source.value() && "you need to set a valid source");
     MessageSourceBasePtr src = param_source.value();
 
     if (_topics_changed) {
-      // cerr << "topics changed" << endl;
+      //      std::cerr << "topics changed" << std::endl;
       handleTopicsChanged();
     }
     if (_interval_changed) {
-      // cerr << "interval changed" << endl;
+      //      std::cerr << "interval changed" << std::endl;
       handleIntervalChanged();
     }
     while (!isPacketReady()) {
       BaseSensorMessagePtr msg = src->getMessage();
       if (!msg) {
-        // cerr << __PRETTY_FUNCTION__ << ": source ova" << endl;
+        //        std::cerr << __PRETTY_FUNCTION__ << ": source ova" << std::endl;
         return 0;
       }
-      // cerr << "got msg " << msg->topic.value() << endl;
+      //      std::cerr << "got msg " << msg->topic.value() << std::endl;
 
       // find a bucket;
       auto it = _message_map.find(msg->topic.value());
       if (it == _message_map.end()) {
-        // cerr << "msg not map, deleting " << endl;
+        //        std::cerr << "msg not map, deleting " << std::endl;
         // delete msg;
         msg.reset();
         continue;
@@ -61,15 +62,13 @@ namespace srrg2_core {
       // we assume the message is more recent than the previous
       // one and we replace it
       if (it->second) {
-        // cerr << "replacing old msg "
-        //     << it->second->timestamp.value() << endl;
+        //        std::cerr << "replacing old msg " << it->second->timestamp.value() << std::endl;
         ++_num_dropped_messages;
         // delete it->second;
         it->second.reset();
       }
       it->second = msg;
-      // cerr << "new ts: "
-      //   << it->second->timestamp.value() << endl;
+      //      std::cerr << "new ts: " << it->second->timestamp.value() << std::endl;
     }
     // we come here if all messages are synchronized
     // we need to assemble them in a packet

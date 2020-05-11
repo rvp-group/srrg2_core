@@ -11,6 +11,7 @@ the `srrg2` packages. These include:
 * base system utilities (tic/toc, class profiler, shell colors, automatic command line parser)
 * ROS messages conversions for the most common message types (odometry, LiDAR 2D/3D, Images ...)
 * core functionalities for our custom viewing system
+* converters for some popular benchmarking datasets (ICL, KITTI, EUROC, MALAGA, TUM, .. ) - from raw data to BOSS.
 
 ## How to build
 The build requirements are rather minimal.

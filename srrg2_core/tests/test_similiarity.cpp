@@ -85,33 +85,27 @@ TEST(Similiarity, Sim3f) {
 
   Similiarity3f s_sim;
   s_sim.translation()    = Vector3f(s_t_x, s_t_y, s_t_z);
+  s_sim.linear()         = geometry3d::a2r(Vector3f(s_alpha_x, s_alpha_y, s_alpha_z));
   s_sim.inverseScaling() = 1.f / s_scale;
-  const Matrix3f s_rotation(geometry3d::a2r(Vector3f(s_alpha_x, s_alpha_y, s_alpha_z)));
-  s_sim.linear()                = s_rotation;
-  const Matrix3f& s_linear_part = s_sim.linear();
 
-  // result calculated in octave
-  Similiarity3f sim_result;
-  Matrix3f rot_result;
-  rot_result << 0.707107f, -0.5f, 0.5f, -0.707107f, -0.5f, 0.5f, 0.f, -0.707107f, -0.707107f;
-  sim_result.linear()         = rot_result;
-  sim_result.translation()    = Vector3f(-3.65685f, 1.91421f, 0.f);
-  sim_result.inverseScaling() = 0.416667f;
+  new_sim                  = sim * s_sim;
+  Similiarity3f sim_result = new_sim * s_sim.inverse();
 
-  // roundoff error porcodio, copuied from octave
-  ASSERT_LE((s_sim * sim).matrix().col(0).sum() - sim_result.matrix().col(0).sum(), 7e-8f);
-  ASSERT_LE((s_sim * sim).matrix().col(1).sum() - sim_result.matrix().col(1).sum(), 4e-7f);
-  ASSERT_LE((s_sim * sim).matrix().col(2).sum() - sim_result.matrix().col(2).sum(), 4e-8f);
-  ASSERT_LE((s_sim * sim).matrix().col(3).sum() - sim_result.matrix().col(3).sum(), 4e-8f);
-  ASSERT_LE((s_sim * sim).matrix().determinant() - sim_result.matrix().determinant(), 4e-8f);
+  // asserting * operator between sim
+  ASSERT_LE(sim.matrix().col(0).sum() - sim_result.matrix().col(0).sum(), 1e-6f);
+  ASSERT_LE(sim.matrix().col(1).sum() - sim_result.matrix().col(1).sum(), 1e-6f);
+  ASSERT_LE(sim.matrix().col(2).sum() - sim_result.matrix().col(2).sum(), 1e-6f);
+  ASSERT_LE(sim.matrix().col(3).sum() - sim_result.matrix().col(3).sum(), 1e-6f);
+  ASSERT_LE(sim.matrix().determinant() - sim_result.matrix().determinant(), 1e-6f);
 
   // ldg asserting operator *= between two matrices
-  s_sim *= sim;
-  ASSERT_LE(s_sim.matrix().col(0).sum() - sim_result.matrix().col(0).sum(), 7e-8f);
-  ASSERT_LE(s_sim.matrix().col(1).sum() - sim_result.matrix().col(1).sum(), 4e-7f);
-  ASSERT_LE(s_sim.matrix().col(2).sum() - sim_result.matrix().col(2).sum(), 4e-8f);
-  ASSERT_LE(s_sim.matrix().col(3).sum() - sim_result.matrix().col(3).sum(), 4e-8f);
-  ASSERT_LE(s_sim.matrix().determinant() - sim_result.matrix().determinant(), 4e-8f);
+  Similiarity3f ss_sim = s_sim;
+  ss_sim *= ss_sim.inverse();
+  ASSERT_FLOAT_EQ(ss_sim.matrix().col(0).sum(), 1.f);
+  ASSERT_FLOAT_EQ(ss_sim.matrix().col(1).sum(), 1.f);
+  ASSERT_FLOAT_EQ(ss_sim.matrix().col(2).sum(), 1.f);
+  ASSERT_FLOAT_EQ(ss_sim.matrix().col(3).sum(), 1.f);
+  ASSERT_FLOAT_EQ(ss_sim.matrix().determinant(), 1.f);
 
   // ldg asserting operator * between similiarity and vector
   const Vector3f& res_vec = identity * Vector3f(t_x, t_y, t_z);
@@ -119,32 +113,33 @@ TEST(Similiarity, Sim3f) {
   ASSERT_FLOAT_EQ(res_vec(1), t_y);
   ASSERT_FLOAT_EQ(res_vec(2), t_z);
 
-  // result vector calculated in octave
-  const Vector3f vec_result(-2.7088318f, 2.9147172f, -16.82498);
-  const Vector3f& sv_result = s_sim * Vector3f(2.f, 3.f, 5.f);
-  ASSERT_FLOAT_EQ(sv_result(0), vec_result(0));
-  ASSERT_FLOAT_EQ(sv_result(1), vec_result(1));
-  ASSERT_FLOAT_EQ(sv_result(2), vec_result(2));
+  // ldg assert sim * vec
+  const Vector3f vec(1.f, 1.f, 1.f);
+  const Vector3f new_vec   = s_sim * vec;
+  const Vector3f other_vec = s_sim.inverse() * new_vec;
+  ASSERT_LE(vec(0) - other_vec(0), 1e-6);
+  ASSERT_LE(vec(1) - other_vec(1), 1e-6);
+  ASSERT_LE(vec(2) - other_vec(2), 1e-6);
 
   // ldg asserting operator s2v and v2s with angles in quaternions representation
   Vector7f vec_sim = geometry3d::s2v(sim);
   Similiarity3f v2s_sim;
   v2s_sim = geometry3d::v2s(vec_sim);
-  ASSERT_LE(v2s_sim.matrix().col(0).sum() - sim.matrix().col(0).sum(), 7e-8f);
-  ASSERT_LE(v2s_sim.matrix().col(1).sum() - sim.matrix().col(1).sum(), 4e-7f);
-  ASSERT_LE(v2s_sim.matrix().col(2).sum() - sim.matrix().col(2).sum(), 4e-8f);
-  ASSERT_LE(v2s_sim.matrix().col(3).sum() - sim.matrix().col(3).sum(), 4e-8f);
-  ASSERT_LE(v2s_sim.matrix().determinant() - sim.matrix().determinant(), 4e-8f);
+  ASSERT_LE(v2s_sim.matrix().col(0).sum() - sim.matrix().col(0).sum(), 1e-6f);
+  ASSERT_LE(v2s_sim.matrix().col(1).sum() - sim.matrix().col(1).sum(), 1e-6f);
+  ASSERT_LE(v2s_sim.matrix().col(2).sum() - sim.matrix().col(2).sum(), 1e-6f);
+  ASSERT_LE(v2s_sim.matrix().col(3).sum() - sim.matrix().col(3).sum(), 1e-6f);
+  ASSERT_LE(v2s_sim.matrix().determinant() - sim.matrix().determinant(), 1e-6f);
 
   // ldg asserting operator s2v and v2s with angles in quaternions representation
   Vector7f tas_sim = geometry3d::s2tas(sim);
   Similiarity3f tas2s_sim;
   tas2s_sim = geometry3d::tas2s(tas_sim);
-  ASSERT_LE(tas2s_sim.matrix().col(0).sum() - sim.matrix().col(0).sum(), 7e-8f);
-  ASSERT_LE(tas2s_sim.matrix().col(1).sum() - sim.matrix().col(1).sum(), 4e-7f);
-  ASSERT_LE(tas2s_sim.matrix().col(2).sum() - sim.matrix().col(2).sum(), 4e-8f);
-  ASSERT_LE(tas2s_sim.matrix().col(3).sum() - sim.matrix().col(3).sum(), 4e-8f);
-  ASSERT_LE(tas2s_sim.matrix().determinant() - sim.matrix().determinant(), 4e-8f);
+  ASSERT_LE(tas2s_sim.matrix().col(0).sum() - sim.matrix().col(0).sum(), 1e-6f);
+  ASSERT_LE(tas2s_sim.matrix().col(1).sum() - sim.matrix().col(1).sum(), 1e-6f);
+  ASSERT_LE(tas2s_sim.matrix().col(2).sum() - sim.matrix().col(2).sum(), 1e-6f);
+  ASSERT_LE(tas2s_sim.matrix().col(3).sum() - sim.matrix().col(3).sum(), 1e-6f);
+  ASSERT_LE(tas2s_sim.matrix().determinant() - sim.matrix().determinant(), 1e-6f);
 }
 
 TEST(Similiarity, Sim2f) {
@@ -198,9 +193,15 @@ TEST(Similiarity, Sim2f) {
   ASSERT_FLOAT_EQ(identity.matrix().col(2).sum(), 1.f);
 
   // ldg asserting operator * between similiarity and vector
-  const Vector2f& res_vec = identity * Vector2f(t_x, t_y);
+  const Vector2f res_vec = identity * Vector2f(t_x, t_y);
   ASSERT_FLOAT_EQ(res_vec(0), t_x);
   ASSERT_FLOAT_EQ(res_vec(1), t_y);
+
+  const Vector2f vec(1.f, 1.f);
+  const Vector2f new_vec   = sim * vec;
+  const Vector2f other_vec = sim.inverse() * new_vec;
+  ASSERT_LE(vec(0) - other_vec(0), 1e-6);
+  ASSERT_LE(vec(1) - other_vec(1), 1e-6);
 
   // ldg asserting operator s2v and v2s with angles in quaternions representation
   Vector4f vec_sim = geometry2d::s2v(sim);

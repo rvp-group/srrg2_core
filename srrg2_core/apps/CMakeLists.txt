@@ -13,6 +13,12 @@ target_link_libraries(converter_tum_to_srrg
   srrg2_messages_library
 )
 
+add_executable(converter_kitti_to_srrg converter_kitti_to_srrg.cpp)
+target_link_libraries(converter_kitti_to_srrg
+  srrg2_messages_library
+  stdc++fs
+)
+
 add_executable(converter_euroc_to_srrg converter_euroc_to_srrg.cpp)
 target_link_libraries(converter_euroc_to_srrg
   srrg2_messages_library

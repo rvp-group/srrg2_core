@@ -87,7 +87,7 @@ namespace srrg2_core {
   };
 
   using ArgumentInt=Argument_<int> ;
-  using ArgimentFloat=Argument_<float> ;
+  using ArgumentFloat=Argument_<float> ;
   using ArgumentDouble=Argument_<double> ;
   using ArgumentString=Argument_<std::string>;
 }

@@ -83,8 +83,10 @@ namespace srrg2_core {
       target_cell.source_it   = it;
       target_cell.transformed = tp;
       target_cell.depth       = range;
-      // bdc TODO this is not defined in this projection. what to do?
-      // target_cell.projected   = tp;
+      // ia TODO, workaroud, we place here the (u,v,1) coordinates of the projected point
+      target_cell.projected.template value<0>()[0] = c;
+      target_cell.projected.template value<0>()[1] = r;
+      target_cell.projected.template value<0>()[2] = 1.f;
 
     } // for points
     return num_good;

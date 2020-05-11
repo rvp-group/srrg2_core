@@ -57,7 +57,6 @@ namespace srrg2_test {
 
       // ds compute projective baseline (assuming no rotation)
       baseline_to_second_sensor_pixelmeters = projection_matrix * offset_second_sensor;
-
       // ds sample scenario for each sensor pose
       points_in_sensor.resize(number_of_poses);
       points_in_sensor_projected_homo.resize(number_of_poses);
@@ -70,8 +69,10 @@ namespace srrg2_test {
       correspondences_canvas_to_sensor.resize(number_of_poses);
       correspondences_canvas_to_world.resize(number_of_poses);
       maximum_projection_value.resize(number_of_poses, 0);
+
       for (size_t index_pose = 0; index_pose < number_of_poses; ++index_pose) {
-        const TransformType& sensor_pose(sensor_poses[index_pose]);
+        const TransformType& sensor_in_local_map = sensor_poses[index_pose];
+        const TransformType local_map_in_sensor  = sensor_in_local_map.inverse();
 
         // ds current sensor pose
         points_in_sensor[index_pose].reserve(number_of_points_);
@@ -92,13 +93,15 @@ namespace srrg2_test {
         // ds transform and project points into sensor frame
         for (size_t i = 0; i < number_of_points_; ++i) {
           PointType point_in_sensor;
-          point_in_sensor.coordinates() = sensor_pose * points_in_world[i].coordinates();
+          point_in_sensor.coordinates() = local_map_in_sensor * points_in_world[i].coordinates();
           PointType point_in_sensor_projected_homo;
           point_in_sensor_projected_homo.coordinates() =
             projection_matrix * point_in_sensor.coordinates();
           PointType point_in_sensor_projected_homo_second;
+          // srrg I don't know why this minus here make things work
+          // maybe because we are left multiplying the sensor
           point_in_sensor_projected_homo_second.coordinates() =
-            point_in_sensor_projected_homo.coordinates() + baseline_to_second_sensor_pixelmeters;
+            point_in_sensor_projected_homo.coordinates() - baseline_to_second_sensor_pixelmeters;
 
           // ds check visibility criteria depending on sensor type TODO proper implementation
           PointProjectedType point_projected;
@@ -124,7 +127,7 @@ namespace srrg2_test {
           } else if (type_ == SensorType::Camera) {
             // ds assuming pinhole camera - all homogeneous values must be positive
             if (point_in_sensor.coordinates()(0) <= 0 || point_in_sensor.coordinates()(1) <= 0 ||
-                point_in_sensor.coordinates()(2) <= 0) {
+                point_in_sensor.coordinates()(2) <= min_camera_depth) {
               continue;
             }
 
@@ -283,6 +286,7 @@ namespace srrg2_test {
     // ds can be used to generate a rigid stereo scenario (redundant if not used)
     VectorType offset_second_sensor                  = VectorType::Zero();
     VectorType baseline_to_second_sensor_pixelmeters = VectorType::Zero();
+    RealType_ min_camera_depth                       = 1;
 
     // ds sensor poses w.r.t. world
     VectorTransformType sensor_poses;

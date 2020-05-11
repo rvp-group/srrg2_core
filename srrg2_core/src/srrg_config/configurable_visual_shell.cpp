@@ -15,6 +15,22 @@ namespace srrg2_core {
       if (shell->_ready) {
         *(shell->_ready) = true;
       }
+      if (ConfigurableVisualShell::viewer_core && ConfigurableVisualShell::canvases.size()) {
+        // ia busy waiting that viewer is online
+        std::cerr << "ConfigurableVisualShell::startCallback|waiting for viewer to start ... ";
+        while (!ConfigurableVisualShell::viewer_core->isRunning()) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        std::cerr << "ready" << std::endl;
+        // ia draw something on screen (25 times since we have to get the lock)
+        std::cerr << "ConfigurableVisualShell::startCallback|Clearing screen... " << std::endl;
+        for (const auto& canvas : ConfigurableVisualShell::canvases) {
+          canvas.second->putText("waiting...");
+          canvas.second->flush();
+        }
+        // ia ready to go
+        std::cerr << "ConfigurableVisualShell::startCallback|ready to go" << std::endl;
+      }
     }
   };
 
@@ -155,7 +171,8 @@ namespace srrg2_core {
     }
   };
 
-  ConfigurableVisualShell::ConfigurableVisualShell() : ConfigurableShell() {
+  ConfigurableVisualShell::ConfigurableVisualShell(ConfigurableManager& manager_)
+    : ConfigurableShell(manager_) {
     this->addCommands();
   }
 
@@ -188,7 +205,6 @@ namespace srrg2_core {
       while (!viewer_core->isRunning()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
-      std::cerr << "ok" << std::endl;
       // ia draw something on screen (25 times since we have to get the lock)
       std::cerr << "ConfigurableVisualShell::startCallback|Clearing screen... " << std::endl;
       for (const auto& canvas : canvases) {

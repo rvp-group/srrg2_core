@@ -56,6 +56,61 @@ namespace srrg2_core {
     data.value().set(data_out);
   }
 
+  void PointCloud2Message::setPointCloud(const PointIntensity3fVectorCloud& in_cloud_) {
+    using PointType         = PointIntensity3fVectorCloud::PointType;
+    const size_t num_fields = 4; // ia x y z intensity
+    const size_t step_size  = num_fields * sizeof(float);
+
+    // ia easy
+    height.setValue(in_cloud_.size());
+    width.setValue(1);
+
+    // ia the value of the step while reading this message
+    point_step.setValue(step_size);
+    row_step.setValue(point_step.value());
+    is_dense.setValue(true);
+
+    // ia harcoded fields ( x y z intensity ) - luckily all floats
+    fields.resize(num_fields);
+    for (size_t i = 0; i < fields.size(); ++i) {
+      fields.value(i).offset.setValue(i * sizeof(float));
+      fields.value(i).datatype.setValue(PointField::FLOAT32);
+      fields.value(i).count.setValue(1);
+    }
+
+    // ia avoid Eigen alignement problems
+    struct PointPODStruct {
+      PointPODStruct(const float& x_, const float& y_, const float& z_, const float& i_) :
+        x(x_),
+        y(y_),
+        z(z_),
+        i(i_) {
+      }
+      const float x;
+      const float y;
+      const float z;
+      const float i;
+    };
+
+    // ia copy the raw data (aka floats)
+    std::vector<PointPODStruct> plain_data;
+    plain_data.reserve(in_cloud_.size());
+    for (const PointType& p : in_cloud_) {
+      PointPODStruct pod(
+        p.coordinates().x(), p.coordinates().y(), p.coordinates().z(), p.intensity());
+      plain_data.emplace_back(pod);
+    }
+    assert(plain_data.size() == in_cloud_.size() &&
+           "PointCloud2Message::setPointCloud|ERROR, pod size mismatch");
+
+    // ia construct a propertycontainerdynamicidentifiebleregistereddynamicptrbossptrptrjesusptr
+    PointCloud2Data* data_out = new PointCloud2Data(); // ia terrible name, it'a a buffer
+    const size_t out_size     = step_size * plain_data.size() * sizeof(uint8_t);
+    data_out->resize(out_size);
+    std::memcpy(&(data_out->at(0)), &(plain_data[0]), out_size);
+    data.value().set(data_out);
+  }
+
   void PointCloud2Message::getPointCloud(Point3fVectorCloud& out_cloud_) {
     const size_t cloud_size = (height.value() * width.value());
     out_cloud_.resize(cloud_size);
@@ -112,9 +167,9 @@ namespace srrg2_core {
     // ia get the raw buffer
     uint8_t* raw_buffer = data.value().get()->data();
 
-    // ia get the number of fields
-    const size_t& num_fields = fields.size();
-
+    //    // ia get the number of fields
+    //    const size_t& num_fields = fields.size();
+    //
     // // ia let's see whats in the inside
     // for (size_t i = 0; i < num_fields; ++i) {
     //   const auto& field = fields.value(i);

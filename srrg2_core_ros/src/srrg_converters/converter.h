@@ -2,17 +2,19 @@
 
 // ds ROS messages
 #include <cv_bridge/cv_bridge.h>
+#include <rosbag/bag.h>
+
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <image_transport/image_transport.h>
 #include <nav_msgs/Odometry.h>
-#include <rosbag/bag.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Range.h>
 #include <tf2_msgs/TFMessage.h>
@@ -58,6 +60,8 @@ namespace srrg2_core_ros {
     convert(sensor_msgs::PointCloud2ConstPtr message_in_);
     static srrg2_core::PropertyContainerSerializablePtr
     convert(sensor_msgs::JointStateConstPtr message_in_);
+    static srrg2_core::PropertyContainerSerializablePtr
+    convert(sensor_msgs::NavSatFixConstPtr message_in_);
 
     // ds SRRG to ROS
   public:
@@ -76,6 +80,7 @@ namespace srrg2_core_ros {
     convert(const srrg2_core::TwistStampedMessagePtr message_in_);
     static sensor_msgs::PointCloud2Ptr convert(const srrg2_core::PointCloud2MessagePtr message_in_);
     static sensor_msgs::JointStatePtr convert(const srrg2_core::JointsMessagePtr message_in_);
+    static sensor_msgs::NavSatFixPtr convert(const srrg2_core::NavsatFixMessagePtr message_in_);
 
     // static geometry_msgs::TransformStampedPtr convert(const srrg2_core::TransformEvent*
     // message_in_); TODO used?
@@ -122,7 +127,8 @@ namespace srrg2_core_ros {
     }
 
     template <typename SRRGMessageType_>
-    static std::shared_ptr<SRRGMessageType_> convert(geometry_msgs::PointStampedPtr message_in_) {
+    static std::shared_ptr<SRRGMessageType_>
+    convert(geometry_msgs::PointStampedConstPtr message_in_) {
       return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
     }
 
@@ -132,17 +138,23 @@ namespace srrg2_core_ros {
     }
 
     template <typename SRRGMessageType_>
-    static std::shared_ptr<SRRGMessageType_> convert(geometry_msgs::TwistStampedPtr message_in_) {
+    static std::shared_ptr<SRRGMessageType_>
+    convert(geometry_msgs::TwistStampedConstPtr message_in_) {
       return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
     }
 
     template <typename SRRGMessageType_>
-    static std::shared_ptr<SRRGMessageType_> convert(sensor_msgs::PointCloud2Ptr message_in_) {
+    static std::shared_ptr<SRRGMessageType_> convert(sensor_msgs::PointCloud2ConstPtr message_in_) {
       return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
     }
 
     template <typename SRRGMessageType_>
-    static std::shared_ptr<SRRGMessageType_> convert(sensor_msgs::JointStatePtr message_in_) {
+    static std::shared_ptr<SRRGMessageType_> convert(sensor_msgs::JointStateConstPtr message_in_) {
+      return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
+    }
+
+    template <typename SRRGMessageType_>
+    static std::shared_ptr<SRRGMessageType_> convert(sensor_msgs::NavSatFixConstPtr message_in_) {
       return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
     }
 

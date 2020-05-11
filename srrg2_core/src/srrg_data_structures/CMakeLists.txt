@@ -10,7 +10,7 @@ add_library(srrg2_data_structures_library SHARED
 )
 
 target_link_libraries(srrg2_data_structures_library
-  #srrg2_image_library
+  srrg2_image_library
   #srrg2_config_library
   srrg2_system_utils_library
 )

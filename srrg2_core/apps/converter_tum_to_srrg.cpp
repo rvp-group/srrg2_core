@@ -1,100 +1,144 @@
+#include <dirent.h>
+#include <experimental/filesystem>
 #include <iostream>
 
-#include "srrg_boss/serializer.h"
-#include "srrg_messages/instances.h"
-#include "srrg_system_utils/parse_command_line.h"
-#include "srrg_system_utils/system_utils.h"
+#include <srrg_boss/serializer.h>
+#include <srrg_messages/instances.h>
+#include <srrg_system_utils/parse_command_line.h>
+#include <srrg_system_utils/system_utils.h>
 
 using namespace srrg2_core;
+namespace fs = std::experimental::filesystem;
+
+bool verbose = false;
+const std::string exe_name("converter_kitti_to_srrg");
+#define LOG std::cerr << exe_name + "|"
+#define VLOG(X)  \
+  if (verbose) { \
+    X            \
+  }
 
 // clang-format off
 const char* banner[] = {"This program converts TUM formatted RGB and depth files to SRRG format (json/bag)", 0};
 // clang-format on
 
+using TimestampPoseMap = std::map<double,
+                                  Isometry3f,
+                                  std::less<double>,
+                                  Eigen::aligned_allocator<std::pair<const double, Isometry3f>>>;
+
+void printProgress(const float& progress) {
+  const int bar_width = 80;
+
+  std::cerr << FG_BWHITE("[ ");
+  int pos = bar_width * progress;
+  for (int i = 0; i < bar_width; ++i) {
+    if (i < pos)
+      std::cerr << FG_YELLOW("=");
+    else if (i == pos)
+      std::cerr << FG_BYELLOW("|");
+    else
+      std::cerr << " ";
+  }
+  std::cerr << FG_BWHITE(" ] ") << int(progress * 100.0) << " %\r";
+  std::cerr.flush();
+}
+
+void loadGroundTruthPosesAndStamps(const std::string& ground_truth_file_,
+                                   StdVectorEigenIsometry3f& gps_poses_in_world_,
+                                   std::vector<double>& timestamps_seconds_gt_);
+
 void loadImageInformation(const std::string& infile_,
                           std::vector<std::string>& image_filenames_,
                           std::vector<double>& timestamps_seconds_);
+
+void loadIMUInformation(const std::string& file_imu_data_,
+                        StdVectorEigenVector3d& linear_accelerations_,
+                        std::vector<double>& timestamps_seconds_);
+
+void serializeCameraImageAndInfo(MessageFileSink& sink_,
+                                 size_t& index_,
+                                 const double& timestamp_,
+                                 const std::string& label_,
+                                 const std::string& file_path_image_,
+                                 const std::string& distortion_model_name_,
+                                 const Vector5d& distortion_coefficients_,
+                                 const Matrix3f& camera_matrix_,
+                                 const cv::Mat* undistort_rectify_maps_);
+
+void initializeUndistortion(const Matrix3f& camera_calibration_matrix_,
+                            const Vector5d& distortion_coefficients_,
+                            const cv::Size& opencv_image_size_,
+                            cv::Mat* undistort_rectify_maps_);
+
+static const std::string prefix_name("rgbd_dataset_");
+static const std::string imu_filename("accelerometer.txt");
+static const std::string depth_filename("depth.txt");
+static const std::string gt_filename("groundtruth.txt");
+static const std::string rgb_filename("rgb.txt");
+
+static std::string sequence("");
 
 int main(int argc_, char** argv_) {
   messages_registerTypes();
 
   // ds set up CLI parameters
-  // clang-format off
   ParseCommandLine command_line_parser(argv_, banner);
-  ArgumentString argument_depth_input_file(
-    &command_line_parser, "d",  "depth", "depth file to convert", "depth.txt");
-  ArgumentString argument_rgb_input_file(
-    &command_line_parser, "r",  "rgb", "RGB file to convert", "rgb.txt");
+  ArgumentString argument_sequence_name(
+    &command_line_parser, "s", "sequence", "sequence name from TUM dataset", "");
   ArgumentString argument_output_file(
-    &command_line_parser, "o",  "output", "converted output file", "messages.json");
-  ArgumentString argument_ground_truth_file(
-     &command_line_parser, "gt",  "ground-truth", "ground truth file", "groundtruth.txt");
-  ArgumentInt argument_camera_identifier(
-     &command_line_parser, "ci",  "camera-identifier", "used camera identifier (1, 2 or 3)", 1);
-
-  // clang-format on
+    &command_line_parser, "o", "output", "converted output file", "messages.json");
+  ArgumentFlag arg_verbose(&command_line_parser, "v", "verbose", "logs something", true);
   command_line_parser.parse();
-  if (argument_depth_input_file.value().empty()) {
-    std::cerr << "ERROR: input depth file is empty (set with -d)" << std::endl;
-    return 0;
-  }
-  if (argument_rgb_input_file.value().empty()) {
-    std::cerr << "ERROR: input RGB file is empty (set with -r)" << std::endl;
+
+  if (argument_sequence_name.value().empty()) {
+    std::cerr << "ERROR: input sequence is empty (set with -s)" << std::endl;
     return 0;
   }
   if (argument_output_file.value().empty()) {
     std::cerr << "ERROR: output filename is empty (set with -o)" << std::endl;
     return 0;
   }
-  if (argument_ground_truth_file.value().empty()) {
-    std::cerr << "ERROR: ground truth filename is empty (set with -gt)" << std::endl;
-    return 0;
+  verbose = arg_verbose.isSet();
+
+  sequence = argument_sequence_name.value();
+
+  std::string dataset_name(prefix_name + sequence);
+  std::string dataset_folder(dataset_name + "/");
+  std::string gt_file(dataset_folder + gt_filename);
+  std::string imu_file(dataset_folder + imu_filename);
+  std::string rgb_file(dataset_folder + rgb_filename);
+  std::string depth_file(dataset_folder + depth_filename);
+
+  if (!isAccessible(dataset_folder)) {
+    throw std::runtime_error(exe_name + "|ERROR cannot dataset_folder file [ " + dataset_folder +
+                             " ]");
+  }
+
+  if (!isAccessible(gt_file)) {
+    throw std::runtime_error(exe_name + "|ERROR cannot gt_file file [ " + gt_file + " ]");
+  }
+
+  if (!isAccessible(imu_file)) {
+    throw std::runtime_error(exe_name + "|ERROR cannot imu_file file [ " + imu_file + " ]");
+  }
+
+  if (!isAccessible(rgb_file)) {
+    throw std::runtime_error(exe_name + "|ERROR cannot rgb_file file [ " + rgb_file + " ]");
+  }
+
+  if (!isAccessible(depth_file)) {
+    throw std::runtime_error(exe_name + "|ERROR cannot depth_file file [ " + depth_file + " ]");
   }
 
   // ds buffer ground truth data
   StdVectorEigenIsometry3f camera_poses_in_world;
   std::vector<double> timestamps_gt;
-  {
-    std::ifstream ground_truth_file(argument_ground_truth_file.value());
-    if (!ground_truth_file.good() || !ground_truth_file.is_open()) {
-      throw std::runtime_error("ERROR: unable to open ground truth file");
-    }
-
-    // ds skip the first 3 lines (TUM format header information)
-    std::cerr << "<header>" << std::endl;
-    std::string buffer;
-    std::getline(ground_truth_file, buffer);
-    std::cerr << buffer << std::endl;
-    std::getline(ground_truth_file, buffer);
-    std::cerr << buffer << std::endl;
-    std::getline(ground_truth_file, buffer);
-    std::cerr << buffer << std::endl;
-    std::cerr << "</header>" << std::endl;
-
-    double timestamp_seconds;
-    double t_x, t_y, t_z;
-    double q_x, q_y, q_z, q_w;
-    while (ground_truth_file >> timestamp_seconds >> t_x >> t_y >> t_z >> q_x >> q_y >> q_z >>
-           q_w) {
-      if (timestamp_seconds == 0) {
-        throw std::runtime_error("ERROR: GT timestamps are expected to start at > 0");
-      }
-      Isometry3f camera_in_world;
-      camera_in_world.translation() = Vector3f(t_x, t_y, t_z);
-      camera_in_world.linear()      = Quaternionf(q_w, q_x, q_y, q_z).toRotationMatrix();
-      camera_poses_in_world.push_back(camera_in_world);
-      timestamps_gt.push_back(timestamp_seconds);
-    }
-    ground_truth_file.close();
-  }
+  loadGroundTruthPosesAndStamps(gt_file, camera_poses_in_world, timestamps_gt);
   if (timestamps_gt.empty()) {
     throw std::runtime_error("ERROR: no ground truth poses loaded");
   }
   std::cerr << "loaded ground truth poses: " << timestamps_gt.size() << std::endl;
-
-  // ds configure serializer
-  Serializer serializer;
-  serializer.setFilePath(argument_output_file.value());
 
   // ds read depth and RGB images and timestamps
   std::vector<std::string> image_filenames_rgb;
@@ -103,11 +147,11 @@ int main(int argc_, char** argv_) {
   std::vector<double> timestamps_depth;
 
   // ds parse image information
-  loadImageInformation(argument_rgb_input_file.value(), image_filenames_rgb, timestamps_rgb);
+  loadImageInformation(rgb_file, image_filenames_rgb, timestamps_rgb);
   if (timestamps_rgb.empty()) {
     throw std::runtime_error("ERROR: no RGB image information retrieved");
   }
-  loadImageInformation(argument_depth_input_file.value(), image_filenames_depth, timestamps_depth);
+  loadImageInformation(depth_file, image_filenames_depth, timestamps_depth);
   if (timestamps_depth.empty()) {
     throw std::runtime_error("ERROR: no Depth image information retrieved");
   }
@@ -116,208 +160,178 @@ int main(int argc_, char** argv_) {
   Matrix3f camera_calibration_matrix;
   Vector_<double, 5> distortion_coefficients;
 
-  const size_t camera_identifier(argument_camera_identifier.value());
-  std::cerr << "setting calibration for camera index: " << camera_identifier << std::endl;
-  switch (camera_identifier) {
-    case 1: {
-      camera_calibration_matrix << 517.3, 0, 318.6, 0, 516.5, 255.3, 0, 0, 1;
-      distortion_coefficients << 0.2624, -0.9531, -0.0054, 0.0026, 1.1633;
-      break;
-    }
-    case 2: {
-      camera_calibration_matrix << 520.9, 0, 325.1, 0, 521.0, 249.7, 0, 0, 1;
-      distortion_coefficients << 0.2312, -0.7849, -0.0033, -0.0001, 0.9172;
-      break;
-    }
-    case 3: {
-      camera_calibration_matrix << 535.4, 0, 320.1, 0, 539.2, 247.6, 0, 0, 1;
-      distortion_coefficients.setZero();
-      break;
-    }
-    default: {
-      throw std::runtime_error("ERROR: unsupported camera number: " +
-                               std::to_string(camera_identifier));
-    }
+  if (sequence.find("freiburg1") != std::string::npos) {
+    camera_calibration_matrix << 517.3, 0, 318.6, 0, 516.5, 255.3, 0, 0, 1;
+    distortion_coefficients << 0.2624, -0.9531, -0.0054, 0.0026, 1.1633;
+  } else if (sequence.find("freiburg2") != std::string::npos) {
+    camera_calibration_matrix << 520.9, 0, 325.1, 0, 521.0, 249.7, 0, 0, 1;
+    distortion_coefficients << 0.2312, -0.7849, -0.0033, -0.0001, 0.9172;
+  } else if (sequence.find("freiburg3") != std::string::npos) {
+    camera_calibration_matrix << 535.4, 0, 320.1, 0, 539.2, 247.6, 0, 0, 1;
+    distortion_coefficients.setZero();
+  } else {
+    throw std::runtime_error("unrecognied camera");
   }
+
   std::cerr << "camera matrix: " << std::endl;
   std::cerr << camera_calibration_matrix << std::endl;
   std::cerr << "distortion coefficients: " << std::endl;
   std::cerr << distortion_coefficients.transpose() << std::endl;
 
+  const cv::Size opencv_image_size(640, 480);
+  cv::Mat undistort_rectify_maps[2];
+  Matrix3f camera_calibration_matrix_rectified(Matrix3f::Zero());
+
+  //  initializeUndistortion(
+  //    camera_calibration_matrix, distortion_coefficients, opencv_image_size,
+  //    undistort_rectify_maps);
+
+  //  std::cerr << undistort_rectify_maps[0] << std::endl;
+  //  std::cerr << undistort_rectify_maps[1] << std::endl;
   // ds common parameters for all TUM sequences TODO verify
   const std::string distortion_model_name = "radial_tangential";
-  const float factor_to_srrg_depth        = 1.0 / 5;
-  std::cerr << "depth factor: " << factor_to_srrg_depth << std::endl;
-  std::cerr << "press [ENTER] to start conversion" << std::endl;
-  getchar();
+  const float factor_to_srrg_depth        = 1.0f / 5.0f;
 
-  // ds playback configuration UAGHS
-  constexpr double timestamp_tolerance_seconds = 0.01;
-  double timestamp_oldest                      = 0;
-  size_t index_gt                              = 0;
-  size_t index_rgb                             = 0;
-  size_t index_depth                           = 0;
+  std::vector<double> timestamps_imu;
+  StdVectorEigenVector3d linear_accelerations;
+
+  loadIMUInformation(imu_file, linear_accelerations, timestamps_imu);
+
+  std::cerr << "depth factor: " << factor_to_srrg_depth << std::endl;
+  //  std::cerr << "press [ENTER] to start conversion" << std::endl;
+  //  getchar();
+
+  const size_t tot_messages =
+    timestamps_gt.size() + timestamps_imu.size() + timestamps_rgb.size() + timestamps_depth.size();
+
+  size_t index_gt    = 0;
+  size_t index_rgb   = 0;
+  size_t index_depth = 0;
+  size_t index_imu   = 0;
 
   // ds determine initial, smallest timestamp
-  timestamp_oldest = timestamps_gt[0];
-  if (timestamp_oldest > timestamps_rgb[0]) {
-    timestamp_oldest = timestamps_rgb[0];
+  double timestamp_oldest = std::numeric_limits<double>::max();
+
+  if (timestamps_gt.size()) {
+    timestamp_oldest = std::min(timestamp_oldest, timestamps_gt[0]);
   }
-  if (timestamp_oldest > timestamps_depth[0]) {
-    timestamp_oldest = timestamps_depth[0];
+  if (timestamps_imu.size()) {
+    timestamp_oldest = std::min(timestamp_oldest, timestamps_imu[0]);
   }
+  if (timestamps_rgb.size()) {
+    timestamp_oldest = std::min(timestamp_oldest, timestamps_rgb[0]);
+  }
+  if (timestamps_depth.size()) {
+    timestamp_oldest = std::min(timestamp_oldest, timestamps_depth[0]);
+  }
+  if (timestamp_oldest == std::numeric_limits<double>::max()) {
+    throw std::runtime_error("gesu' cristo");
+  }
+
   std::cerr << std::setprecision(16);
-  std::cerr << "initial timestamp (s): " << timestamp_oldest << std::endl;
+  std::cerr << "initial timestamp (s): " << timestamp_oldest << " tot_msgs: " << tot_messages
+            << std::endl;
+  LOG << "writing output to [ " << FG_YELLOW(argument_output_file.value()) << " ]\n";
+  MessageFileSink sink;
+  sink.open(argument_output_file.value());
+  SystemUsageCounter::tic();
 
   // ds playback all buffers
-  while (index_gt < timestamps_gt.size() || index_rgb < timestamps_rgb.size() ||
-         index_depth < timestamps_depth.size()) {
+  size_t processed_msgs = 0;
+  while (true) {
     // ds if we still have ground truth information available
-    if (index_gt < timestamps_gt.size()) {
-      const double& timestamp_candidate = timestamps_gt[index_gt];
-      // ds if the timestamp is close enough to the currently smallest timestamp
-      if (std::fabs(timestamp_candidate - timestamp_oldest) < timestamp_tolerance_seconds) {
-        // ds write message
-        TransformEventsMessagePtr transform_message(
-          new TransformEventsMessage("/tf", "/camera_rgb", index_gt, timestamp_candidate));
-        transform_message->events.resize(1);
-        TransformEvent event_gt(
-          timestamp_candidate, "camera_rgb", camera_poses_in_world[index_gt], "world");
-        transform_message->events.setValue(0, event_gt);
-        serializer.writeObject(*transform_message);
-        std::cerr << "G";
-        ++index_gt;
-      }
+    double first_timestamp = std::numeric_limits<double>::max();
+    if (timestamps_gt.size()) {
+      first_timestamp = std::min(first_timestamp, timestamps_gt[0]);
+    }
+    if (timestamps_imu.size()) {
+      first_timestamp = std::min(first_timestamp, timestamps_imu[0]);
+    }
+    if (timestamps_rgb.size()) {
+      first_timestamp = std::min(first_timestamp, timestamps_rgb[0]);
+    }
+    if (timestamps_depth.size()) {
+      first_timestamp = std::min(first_timestamp, timestamps_depth[0]);
+    }
+    if (first_timestamp == std::numeric_limits<double>::max()) {
+      break;
+    }
+
+    if (timestamps_gt.size() && timestamps_gt[0] == first_timestamp) {
+      OdometryMessagePtr gt_in_world(
+        new OdometryMessage("/ground_truth", "gps", index_gt, first_timestamp));
+      gt_in_world->pose.setValue(camera_poses_in_world.front());
+      sink.putMessage(gt_in_world);
+      camera_poses_in_world.erase(camera_poses_in_world.begin());
+      timestamps_gt.erase(timestamps_gt.begin());
+      ++index_gt;
+      ++processed_msgs;
     }
 
     // ds if we have RGB data available
-    if (index_rgb < timestamps_rgb.size()) {
-      const double& timestamp_candidate = timestamps_rgb[index_rgb];
-      // ds if the timestamp is close enough to the currently smallest timestamp
-      if (std::fabs(timestamp_candidate - timestamp_oldest) < timestamp_tolerance_seconds) {
-        // ds create image message
-        ImageMessagePtr image_message(
-          new ImageMessage("/camera/rgb/image", "/camera_rgb", index_rgb, timestamp_candidate));
-
-        // ds load RGB image from disk and convert
-        const cv::Mat image_opencv =
-          cv::imread(image_filenames_rgb[index_rgb], CV_LOAD_IMAGE_GRAYSCALE);
-        if (image_opencv.rows <= 0 || image_opencv.cols <= 0) {
-          std::cerr << "\nWARNING: skipping invalid RGB image: " << image_filenames_rgb[index_rgb]
-                    << " with dimensions: " << image_opencv.rows << " x " << image_opencv.cols
-                    << std::endl;
-          continue;
-        }
-        ImageUInt8* base_image(new ImageUInt8());
-        base_image->fromCv(image_opencv);
-        image_message->setImage(base_image);
-        image_message->image_cols.setValue(image_opencv.cols);
-        image_message->image_rows.setValue(image_opencv.rows);
-
-        // ds create camera info message
-        CameraInfoMessagePtr camera_info_message(
-          new CameraInfoMessage(image_message->topic.value() + "/info",
-                                image_message->frame_id.value(),
-                                image_message->seq.value(),
-                                image_message->timestamp.value()));
-        camera_info_message->depth_scale.setValue(1e-3f);
-        camera_info_message->projection_model.setValue("pinhole");
-        camera_info_message->distortion_model.setValue(distortion_model_name);
-        camera_info_message->distortion_coefficients.setValue(distortion_coefficients);
-        camera_info_message->camera_matrix.setValue(camera_calibration_matrix);
-
-        // ds write messages
-        serializer.writeObject(*image_message);
-        serializer.writeObject(*camera_info_message);
-        std::cerr << "I";
-
-        // ds display converted images
-        cv::imshow("processed image RGB", image_opencv);
-        cv::waitKey(1);
-        ++index_rgb;
-      }
+    if (timestamps_rgb.size() && timestamps_rgb.front() == first_timestamp) {
+      serializeCameraImageAndInfo(sink,
+                                  index_rgb,
+                                  first_timestamp,
+                                  "rgb",
+                                  dataset_folder + image_filenames_rgb.front(),
+                                  distortion_model_name,
+                                  distortion_coefficients,
+                                  camera_calibration_matrix,
+                                  undistort_rectify_maps);
+      image_filenames_rgb.erase(image_filenames_rgb.begin());
+      timestamps_rgb.erase(timestamps_rgb.begin());
+      ++index_rgb;
+      ++processed_msgs;
     }
 
-    // ds if we have depth data available
-    if (index_depth < timestamps_depth.size()) {
-      const double& timestamp_candidate = timestamps_depth[index_depth];
-      // ds if the timestamp is close enough to the currently smallest timestamp
-      if (std::fabs(timestamp_candidate - timestamp_oldest) < timestamp_tolerance_seconds) {
-        // ds create image message
-        ImageMessagePtr image_message(new ImageMessage(
-          "/camera/depth/image", "/camera_depth", index_depth, timestamp_candidate));
-
-        // ds load Depth image from disk and convert
-        const cv::Mat image_opencv =
-          cv::imread(image_filenames_depth[index_depth], CV_LOAD_IMAGE_ANYDEPTH);
-        if (image_opencv.rows <= 0 || image_opencv.cols <= 0) {
-          std::cerr << "\nWARNING: skipping invalid Depth image: "
-                    << image_filenames_depth[index_depth]
-                    << " with dimensions: " << image_opencv.rows << " x " << image_opencv.cols
-                    << std::endl;
-          continue;
-        }
-        cv::Mat image_opencv_depth_scaled(image_opencv);
-        image_opencv_depth_scaled *= factor_to_srrg_depth;
-        ImageUInt16* image_depth(new ImageUInt16());
-        image_depth->fromCv(image_opencv_depth_scaled);
-        image_message->setImage(image_depth); // ImageFloat takes up double the space
-        image_message->image_cols.setValue(image_opencv.cols);
-        image_message->image_rows.setValue(image_opencv.rows);
-
-        // ds create camera info message
-        CameraInfoMessagePtr camera_info_message(
-          new CameraInfoMessage(image_message->topic.value() + "/info",
-                                image_message->frame_id.value(),
-                                image_message->seq.value(),
-                                image_message->timestamp.value()));
-        camera_info_message->depth_scale.setValue(1e-3f);
-        camera_info_message->projection_model.setValue("pinhole");
-        camera_info_message->distortion_model.setValue(distortion_model_name);
-        camera_info_message->distortion_coefficients.setValue(distortion_coefficients);
-        camera_info_message->camera_matrix.setValue(camera_calibration_matrix);
-
-        // ds write messages
-        serializer.writeObject(*image_message);
-        serializer.writeObject(*camera_info_message);
-        std::cerr << "D";
-
-        // ds display converted images
-        image_opencv *= 5; // ds visibility
-        cv::imshow("processed image Depth", image_opencv);
-        cv::waitKey(1);
-        ++index_depth;
-      }
+    if (timestamps_depth.size() && timestamps_depth.front() == first_timestamp) {
+      serializeCameraImageAndInfo(sink,
+                                  index_depth,
+                                  first_timestamp,
+                                  "depth",
+                                  dataset_folder + image_filenames_depth.front(),
+                                  distortion_model_name,
+                                  distortion_coefficients,
+                                  camera_calibration_matrix,
+                                  undistort_rectify_maps);
+      image_filenames_depth.erase(image_filenames_depth.begin());
+      timestamps_depth.erase(timestamps_depth.begin());
+      ++index_depth;
+      ++processed_msgs;
     }
 
-    // ds update timestamp
-    bool timestamp_updated = false;
-    if (index_gt < timestamps_gt.size()) {
-      // ds always move timestamp
-      timestamp_oldest  = timestamps_gt[index_gt];
-      timestamp_updated = true;
+    if (timestamps_imu.size() && timestamps_imu.front() == first_timestamp) {
+      IMUMessagePtr message(new IMUMessage("/imu", "imu", index_imu, first_timestamp));
+      message->angular_velocity.setValue(Vector3f::Zero());
+      //        message->angular_velocity_covariance.setValue(Matrix3f::Identity());
+      message->linear_acceleration.setValue(linear_accelerations.front().cast<float>());
+      //        message->linear_acceleration_covariance.setValue(Matrix3f::Identity());
+      message->orientation.setValue(Matrix3f::Zero());
+      //        message->orientation_covariance.setValue(Matrix3f::Identity());
+      message->rate_hz.setValue(-1);
+
+      linear_accelerations.erase(linear_accelerations.begin());
+      timestamps_imu.erase(timestamps_imu.begin());
+      ++index_imu;
+      ++processed_msgs;
+      sink.putMessage(message);
     }
-    if (index_rgb < timestamps_rgb.size()) {
-      // ds move timestamp further back if possible
-      if (timestamp_oldest > timestamps_rgb[index_rgb] || !timestamp_updated) {
-        timestamp_oldest  = timestamps_rgb[index_rgb];
-        timestamp_updated = true;
-      }
-    }
-    if (index_depth < timestamps_depth.size()) {
-      // ds move timestamp further back if possible
-      if (timestamp_oldest > timestamps_depth[index_depth] || !timestamp_updated) {
-        timestamp_oldest  = timestamps_depth[index_depth];
-        timestamp_updated = true;
-      }
-    }
+
+    const double progress_percentage = (double) processed_msgs * 1.f / (double) (tot_messages);
+    printProgress(progress_percentage);
   }
+  double t = SystemUsageCounter::toc();
+
+  LOG << "converted [ " << processed_msgs << " ] messages in [ " << t << " ] s -- FPS [ "
+      << (float) processed_msgs / t << " ] Hz\n";
+
+  sink.close();
+
   std::cerr << std::endl;
-  std::cerr << "# converted RGB messages: " << index_rgb << "/" << timestamps_rgb.size()
-            << std::endl;
-  std::cerr << "# converted Depth messages: " << index_depth << "/" << timestamps_depth.size()
-            << std::endl;
-  std::cerr << "# converted GT messages: " << index_gt << "/" << timestamps_gt.size() << std::endl;
+  std::cerr << "# converted RGB messages: " << index_rgb << std::endl;
+  std::cerr << "# converted Depth messages: " << index_depth << std::endl;
+  std::cerr << "# converted GT messages: " << index_gt << std::endl;
   return 0;
 }
 
@@ -352,4 +366,167 @@ void loadImageInformation(const std::string& infile_name_,
   std::cerr << "loadImageInformation|# loaded entries: " << timestamps_seconds_.size()
             << " for file '" << infile_name_ << "'" << std::endl;
   infile.close();
+}
+
+void loadGroundTruthPosesAndStamps(const std::string& ground_truth_file_,
+                                   StdVectorEigenIsometry3f& gps_poses_in_world_,
+                                   std::vector<double>& timestamps_gt_) {
+  std::ifstream ground_truth_file(ground_truth_file_);
+  if (!ground_truth_file.good() || !ground_truth_file.is_open()) {
+    throw std::runtime_error("ERROR: unable to open ground truth file");
+  }
+
+  // ds skip the first 3 lines (TUM format header information)
+  std::cerr << "<header>" << std::endl;
+  std::string buffer;
+  std::getline(ground_truth_file, buffer);
+  std::cerr << buffer << std::endl;
+  std::getline(ground_truth_file, buffer);
+  std::cerr << buffer << std::endl;
+  std::getline(ground_truth_file, buffer);
+  std::cerr << buffer << std::endl;
+  std::cerr << "</header>" << std::endl;
+
+  double timestamp_seconds;
+  double t_x, t_y, t_z;
+  double q_x, q_y, q_z, q_w;
+  while (ground_truth_file >> timestamp_seconds >> t_x >> t_y >> t_z >> q_x >> q_y >> q_z >> q_w) {
+    if (timestamp_seconds == 0) {
+      throw std::runtime_error("ERROR: GT timestamps are expected to start at > 0");
+    }
+    Isometry3f camera_in_world;
+    camera_in_world.translation() = Vector3f(t_x, t_y, t_z);
+    camera_in_world.linear()      = Quaternionf(q_w, q_x, q_y, q_z).toRotationMatrix();
+    gps_poses_in_world_.push_back(camera_in_world);
+    timestamps_gt_.push_back(timestamp_seconds);
+  }
+  ground_truth_file.close();
+}
+
+void loadIMUInformation(const std::string& file_imu_data_,
+                        StdVectorEigenVector3d& linear_accelerations_,
+                        std::vector<double>& timestamps_seconds_) {
+  linear_accelerations_.clear();
+  std::cerr << "loadIMUInformation|file: '" << file_imu_data_ << "'" << std::endl;
+  std::ifstream stream(file_imu_data_);
+  if (!stream.good() || !stream.is_open()) {
+    throw std::runtime_error("loadIMUInformation|ERROR: unable to open file: " + file_imu_data_);
+  }
+
+  // ds skip first line (header)
+  std::string buffer;
+  std::cerr << "loadIMUInformation|<header>" << std::endl;
+  std::getline(stream, buffer);
+  std::cerr << buffer << std::endl;
+  std::getline(stream, buffer);
+  std::cerr << buffer << std::endl;
+  std::getline(stream, buffer);
+  std::cerr << buffer << std::endl;
+  std::cerr << "loadIMUInformation|<header>" << std::endl;
+
+  // ds parse by tokens
+  linear_accelerations_.reserve(100000);
+  double timestamp_seconds = 0;
+  double IMU_X_ACC, IMU_Y_ACC, IMU_Z_ACC;
+  while (stream >> timestamp_seconds >> IMU_X_ACC >> IMU_Y_ACC >> IMU_Z_ACC) {
+    linear_accelerations_.emplace_back(Vector3d(IMU_X_ACC, IMU_Y_ACC, IMU_Z_ACC));
+    timestamps_seconds_.emplace_back(timestamp_seconds);
+  }
+  std::cerr << "loadIMUInformation|# loaded entries: " << timestamps_seconds_.size()
+            << " for file '" << file_imu_data_ << "'" << std::endl;
+  stream.close();
+}
+
+void serializeCameraImageAndInfo(MessageFileSink& sink_,
+                                 size_t& index_,
+                                 const double& timestamp_,
+                                 const std::string& label_,
+                                 const std::string& file_path_image_,
+                                 const std::string& distortion_model_name_,
+                                 const Vector5d& distortion_coefficients_,
+                                 const Matrix3f& camera_matrix_,
+                                 const cv::Mat* undistort_rectify_maps_) {
+  // ds create image message
+  ImageMessagePtr image_message(
+    new ImageMessage("/" + label_ + "/image_raw", label_, index_, timestamp_));
+
+  // ds load RGB image from disk and convert
+  cv::Mat image_opencv = cv::imread(file_path_image_, CV_LOAD_IMAGE_GRAYSCALE);
+
+  //  cv::remap(image_opencv,
+  //            image_opencv,
+  //            undistort_rectify_maps_[0],
+  //            undistort_rectify_maps_[1],
+  //            cv::INTER_LINEAR);
+
+  if (image_opencv.rows <= 0 || image_opencv.cols <= 0) {
+    throw std::runtime_error(
+      "serializeCameraImageAndInfo|ERROR: invalid camera image: " + file_path_image_ +
+      " with dimensions: " + std::to_string(image_opencv.rows) + " x " +
+      std::to_string(image_opencv.cols));
+  }
+
+  // ds map to srrg
+  ImageUInt8* base_image(new ImageUInt8());
+  base_image->fromCv(image_opencv);
+  image_message->setImage(base_image);
+  image_message->image_cols.setValue(image_opencv.cols);
+  image_message->image_rows.setValue(image_opencv.rows);
+
+  // ds create camera info message
+  CameraInfoMessagePtr camera_info_message(
+    new CameraInfoMessage(image_message->topic.value() + "/info",
+                          image_message->frame_id.value(),
+                          image_message->seq.value(),
+                          image_message->timestamp.value()));
+  camera_info_message->projection_model.setValue("pinhole");
+  camera_info_message->distortion_model.setValue(distortion_model_name_);
+  camera_info_message->camera_matrix.setValue(camera_matrix_);
+  //  camera_info_message->distortion_coefficients.setName("don't use, already undistorted");
+  camera_info_message->distortion_coefficients.setValue(distortion_coefficients_);
+
+  // ds write messages related to this image
+  sink_.putMessage(image_message);
+  sink_.putMessage(camera_info_message);
+}
+
+void initializeUndistortion(const Matrix3f& camera_calibration_matrix_,
+                            const Vector5d& distortion_coefficients_,
+                            const cv::Size& opencv_image_size_,
+                            cv::Mat* undistort_rectify_maps_) {
+  // ds rectification
+  cv::Mat opencv_camera_calibration_matrix(cv::Mat::eye(3, 3, CV_64F));
+  cv::Mat opencv_distortion_coefficients(cv::Mat::zeros(4, 1, CV_64F));
+  cv::Mat opencv_projection_matrix(cv::Mat::eye(3, 4, CV_64F));
+  cv::Mat opencv_rectification_matrix(cv::Mat::eye(3, 3, CV_64F));
+
+  // ds buffer matrices to opencv
+  for (size_t r = 0; r < 3; ++r) {
+    for (size_t c = 0; c < 3; ++c) {
+      opencv_camera_calibration_matrix.at<double>(r, c) = camera_calibration_matrix_(r, c);
+    }
+  }
+  for (size_t i = 0; i < 4; ++i) {
+    opencv_distortion_coefficients.at<double>(i) = distortion_coefficients_(i);
+  }
+
+  // ds check if failed
+  if (cv::norm(opencv_projection_matrix) == 0) {
+    throw std::runtime_error("ERROR: rectification parameter retrieval failed");
+  }
+
+  // ds compute undistorted and rectified mappings
+  cv::initUndistortRectifyMap(opencv_camera_calibration_matrix,
+                              opencv_distortion_coefficients,
+                              opencv_rectification_matrix,
+                              opencv_projection_matrix,
+                              opencv_image_size_,
+                              CV_16SC2,
+                              undistort_rectify_maps_[0],
+                              undistort_rectify_maps_[1]);
+
+  // ds check if rectification failed
+  if (cv::norm(undistort_rectify_maps_[0]) == 0 || cv::norm(undistort_rectify_maps_[1]) == 0) {
+    throw std::runtime_error("ERROR: unable to undistort and rectify camera left");
+  }
 }

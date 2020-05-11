@@ -18,4 +18,5 @@ target_link_libraries(
   srrg2_configurable_shell_library
   srrg2_property_library
   srrg2_messages_library
+  srrg2_viewer_library
   )

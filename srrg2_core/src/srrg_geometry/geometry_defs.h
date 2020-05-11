@@ -67,6 +67,9 @@ namespace srrg2_core {
   template <typename Scalar_>
   using Matrix6_ = Eigen::Matrix<Scalar_, 6, 6>;
 
+  template <typename Scalar_>
+  using Matrix7_ = Eigen::Matrix<Scalar_, 7, 7>;
+
   template <typename Scalar_, int Dim>
   using Transform_ = Eigen::Transform<Scalar_, Dim, Eigen::Affine>;
 

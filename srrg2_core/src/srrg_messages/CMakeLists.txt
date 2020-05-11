@@ -12,6 +12,7 @@ add_library(srrg2_messages_library SHARED
   messages/twist_stamped_message.cpp messages/twist_stamped_message.h
   messages/point_field.cpp messages/point_field.h 
   messages/point_cloud2_message.cpp messages/point_cloud2_message.h
+  messages/navsat_fix_message.h messages/navsat_fix_message.cpp
 
   message_handlers/message_pack.cpp message_handlers/message_pack.h
   message_handlers/message_sink_base.cpp message_handlers/message_sink_base.h
@@ -37,4 +38,5 @@ target_link_libraries(srrg2_messages_library
   srrg2_config_library
   srrg2_image_library
   srrg2_data_structures_library
+  srrg2_system_utils_library
 )

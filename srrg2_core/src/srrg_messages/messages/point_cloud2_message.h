@@ -48,7 +48,10 @@ namespace srrg2_core {
     //! @brief memcopy of the buffer
     void setRawData(const std::vector<uint8_t>& data_);
 
+    //! @brief given a point cloud fills all the attributes according to the cloud properties
     void setPointCloud(const Point3fVectorCloud& in_cloud_);
+    void setPointCloud(const PointIntensity3fVectorCloud& in_cloud_);
+
     //! @brief given the complete copy of the raw message, read the data and puts in a intellegible
     //! srrg2 format. only coordinates are tranformed here
     void getPointCloud(Point3fVectorCloud& out_cloud_);

@@ -1,59 +1,58 @@
+#include <cassert>
 #include <dlfcn.h>
 #include <gnu/lib-names.h>
-#include <cassert>
 #include <iostream>
 
 #include "srrg_boss/deserializer.h"
 #include "srrg_boss/json_object_writer.h"
 #include "srrg_boss/serializer.h"
-#include "srrg_system_utils/system_utils.h"
-#include "srrg_system_utils/shell_colors.h"
 #include "srrg_system_utils/env.h"
+#include "srrg_system_utils/shell_colors.h"
+#include "srrg_system_utils/system_utils.h"
 
 #include "property_container_manager.h"
 #include "property_identifiable.h"
-
 
 #define DEBUG(var) \
   if (var)         \
   std::cerr << #var << ": "
 
-extern char ** environ;
+extern char** environ;
 
 namespace srrg2_core {
   using namespace std;
 
   void _register_dynamic_loader() __attribute__((constructor));
-  
+
   void _register_dynamic_loader() {
     BOSS_REGISTER_CLASS(DynamicLoaderConfig);
   }
-  
 
   static const bool module_manager_debug = false;
 
   void DynamicLoaderConfig::deserializeComplete() {
     std::vector<std::string> complete_paths;
-    for (const auto& so_it: so_names.value()) {
-      bool found=false;
+    for (const auto& so_it : so_names.value()) {
+      bool found = false;
       std::string complete_path;
-      for (const auto& p_it: so_paths.value()) {
-        complete_path=p_it + "/" + so_it;
+      for (const auto& p_it : so_paths.value()) {
+        complete_path = p_it + "/" + so_it;
         // replaces the env vars
         replaceEnvTags(complete_path);
         cerr << "DynamicLoaderConfig| looking for file [" << complete_path << " ] ";
         ifstream is(complete_path);
         if (is.good()) {
           complete_paths.push_back(complete_path);
-          found=true;
+          found = true;
           cerr << "FOUND" << endl;
           break;
         } else {
           cerr << "NOT_FOUND" << endl;
         }
       }
-      if (! found)
+      if (!found) {
         std::cerr << "DynamicLoaderConfig| unable to find [" << so_it << "] in paths";
+      }
     }
     PropertyContainerManager::initFactory(complete_paths);
   }
@@ -63,9 +62,11 @@ namespace srrg2_core {
     des.setFilePath(loader_config_filename);
     SerializablePtr o = 0;
     while ((o = des.readObjectShared())) {
-      std::shared_ptr<DynamicLoaderConfig> loader_ptr=std::dynamic_pointer_cast<DynamicLoaderConfig>(o);
+      std::shared_ptr<DynamicLoaderConfig> loader_ptr =
+        std::dynamic_pointer_cast<DynamicLoaderConfig>(o);
       if (loader_ptr) {
-        std::cerr << "loaded config paths from file [" << loader_config_filename << "]" << std::endl;
+        std::cerr << "loaded config paths from file [" << loader_config_filename << "]"
+                  << std::endl;
         break;
       }
     }
@@ -79,16 +80,17 @@ namespace srrg2_core {
   }
 
   void PropertyContainerManager::initFactory(const std::vector<std::string>& library_paths) {
-    for (const auto& it: library_paths) {
-      std::cerr << "opening library [" << FG_YELLOW(it) << "]";;
+    for (const auto& it : library_paths) {
+      std::cerr << "opening library [" << FG_YELLOW(it) << "]";
       void* handle = dlopen(it.c_str(), RTLD_LAZY);
-      if (! handle) {
-        std::cerr << FG_RED( "ERROR" ) << std::endl;
+      if (!handle) {
+        std::cerr << FG_RED("ERROR") << std::endl;
+        std::cerr << FG_RED(dlerror()) << std::endl;
       } else {
-        std::cerr << FG_GREEN( "OK" ) << std::endl;
+        std::cerr << FG_GREEN("OK") << std::endl;
       }
     }
-    
+
     // now we try a cast to initiate the types
     std::vector<PropertyContainerIdentifiablePtr> configurables;
     std::vector<std::string> class_names = srrg2_core::getClassNames();
@@ -98,8 +100,9 @@ namespace srrg2_core {
         dynamic_cast<srrg2_core::PropertyContainerIdentifiable*>(ser);
       if (c) {
         configurables.push_back(PropertyContainerIdentifiablePtr(c));
-      } else
+      } else {
         delete ser;
+      }
     }
 
     // we recurse in each configuration, and we list the configurable properties
@@ -217,8 +220,9 @@ namespace srrg2_core {
   PropertyContainerIdentifiablePtr
   PropertyContainerManager::getByName(const std::string& config_name) {
     auto it = _named_instances.find(config_name);
-    if (it == _named_instances.end())
+    if (it == _named_instances.end()) {
       return PropertyContainerIdentifiablePtr();
+    }
     return it->second;
   }
 
@@ -292,12 +296,17 @@ namespace srrg2_core {
         PropertyIdentifiablePtrVectorInterface* v_prop =
           dynamic_cast<PropertyIdentifiablePtrVectorInterface*>(prop_it);
         if (v_prop) {
+          std::vector<IdentifiablePtr> resized_vec;
+          resized_vec.reserve(v_prop->size());
           for (size_t k = 0; k < v_prop->size(); ++k) {
             IdentifiablePtr ptr = v_prop->getSharedPtr(k);
             if (ptr == erased) {
-              v_prop->assign(k, IdentifiablePtr());
+              continue;
+              //              v_prop->assign(k, IdentifiablePtr());
             }
+            resized_vec.emplace_back(ptr);
           }
+          v_prop->assign(resized_vec);
           continue;
         }
         PropertyIdentifiablePtrInterface* prop =

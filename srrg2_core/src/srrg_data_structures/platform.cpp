@@ -150,8 +150,9 @@ namespace srrg2_core {
     TransformEventPtr tf_event = std::dynamic_pointer_cast<TransformEvent>(link_event_);
 
     if (element == _identifier_to_link_map.end()) {
-      DEBUG(platform_debug) << FG_YELLOW("Platform::addEvent|WARNING: link not present: '"
-                                         << link_event_->identifier() << "'\n");
+      DEBUG(platform_debug) << "Platform::addEvent|"
+                            << FG_YELLOW("WARNING: link not present: '" << link_event_->identifier()
+                                                                        << "'\n");
 
       // ds check if we have a transform event - ONLY FOR THESE WE CAN ADD
       // BASE LINKS
@@ -170,6 +171,27 @@ namespace srrg2_core {
     } else {
       // ds retrieve targeted link
       link = element->second;
+      DEBUG(platform_debug) << "Platform::addEvent|"
+                            << FG_BLUE("WARNING: link present: '"
+                                       << link->identifier() << "' with parent: '"
+                                       << link->identifierParent() << "'\n");
+
+      if (link->identifierParent() != tf_event->identifierParent()) {
+        if (link->identifierParent() == "") {
+          DEBUG(platform_debug) << "Platform::addEvent|"
+                                << FG_GREEN("found root " << tf_event->identifierParent() << " for "
+                                                          << link->identifier())
+                                << std::endl;
+          link->setIdentifierParent(tf_event->identifierParent());
+          setup();
+        } else {
+          std::cerr << "Platform::addEvent|"
+                    << FG_RED(link->identifier()
+                              << " has different roots: " << link->identifierParent() << " "
+                              << tf_event->identifierParent())
+                    << std::endl;
+        }
+      }
     }
     // ds add event (will fail and have no effect if wrong dynamic event type)
     /* std::cerr << "Platform::addEvent|link " << link->identifier() << " num
@@ -186,8 +208,9 @@ namespace srrg2_core {
     // ds attempt insertion and check for already present identfier
     if (!_identifier_to_link_map.insert(std::make_pair(link_->identifier(), link_)).second) {
       // ds ignore request (TODO: critical or not?)
-      DEBUG(platform_debug) << "Platform::addLink|WARNING: Link: '" << link_->_identifier
-                            << "' already exists" << std::endl;
+      DEBUG(platform_debug) << FG_YELLOW("Platform::addLink|WARNING: Link: '" << link_->_identifier
+                                                                              << "' already exists")
+                            << std::endl;
       return false;
     } else {
       // ds update the structure
@@ -215,7 +238,7 @@ namespace srrg2_core {
       for (const auto& id_link_elem : _identifier_to_link_map) {
         std::cerr << (id_link_elem.second->parent() ? id_link_elem.second->parent()->identifier()
                                                     : "world")
-                  << "->" << id_link_elem.first << std::endl;
+                  << " -> " << id_link_elem.first << std::endl;
       }
       return false;
     }
@@ -318,6 +341,7 @@ namespace srrg2_core {
                                  _number_of_correctly_connected_joints
                             << std::endl;
     }
+    DEBUG(platform_debug) << "8=========D" << this << "C==========8" << std::endl;
 
     // ds fine
     _is_set_up = true;

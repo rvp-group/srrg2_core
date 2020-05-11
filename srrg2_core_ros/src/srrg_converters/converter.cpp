@@ -262,6 +262,41 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
+  srrg2_core::PropertyContainerSerializablePtr
+  Converter::convert(sensor_msgs::NavSatFixConstPtr message_in_) {
+    if (!message_in_) {
+      return nullptr;
+    }
+
+    // ia check if message is well formed
+    assert(message_in_->status.status < 3 && message_in_->status.status > -2 &&
+           "invalid fix status");
+    assert(message_in_->status.service > 0 && message_in_->status.service < 9 && "invalid service");
+    assert(message_in_->position_covariance_type < 4 && "invalid covariance type");
+
+    // ia create the message and populate the header
+    srrg2_core::NavsatFixMessagePtr message_out(new srrg2_core::NavsatFixMessage);
+    ROS_TO_SRRG_HEADER((*message_out), (*message_in_));
+
+    // ia start to actually convert the message
+    message_out->status.setValue(message_in_->status.status);
+    message_out->service.setValue(message_in_->status.service);
+    message_out->covariance_type.setValue(message_in_->position_covariance_type);
+    message_out->latitude.setValue(message_in_->latitude);
+    message_out->longitude.setValue(message_in_->longitude);
+
+    // ia take altitude if present (otherwise leave default invalid values)
+    if (!std::isnan(message_in_->altitude)) {
+      message_out->has_altitude.setValue(true);
+      message_out->altitude.setValue(message_in_->altitude);
+    }
+
+    // ia copy the goddamn position covariance
+    ROS_TO_SRRG_MAT3(message_out->covariance, message_in_->position_covariance);
+
+    return message_out;
+  }
+
   //--------------------------------------------------------------//
   //-------------------   SRRG -> ROS   --------------------------//
   //--------------------------------------------------------------//
@@ -333,7 +368,7 @@ namespace srrg2_core_ros {
 
     message_out->encoding = encoding;
 
-    std::wcerr << "unhandled big endian flag" << std::endl;
+    //    std::wcerr << "unhandled big endian flag" << std::endl;
 
     return message_out;
   }
@@ -533,6 +568,41 @@ namespace srrg2_core_ros {
       message_out->velocity[i]                  = joint_event.velocity();
       message_out->effort[i]                    = joint_event.effort();
     }
+
+    return message_out;
+  }
+
+  sensor_msgs::NavSatFixPtr Converter::convert(const srrg2_core::NavsatFixMessagePtr message_in_) {
+    if (!message_in_) {
+      return nullptr;
+    }
+
+    assert(message_in_->status.value() < 3 && message_in_->status.value() > -2 &&
+           "invalid fix status");
+    assert(message_in_->service.value() > 0 && message_in_->service.value() < 9 &&
+           "invalid service");
+    assert(message_in_->covariance_type.value() < 4 && "invalid covariance type");
+
+    // ia construct and copy header
+    sensor_msgs::NavSatFixPtr message_out(new sensor_msgs::NavSatFix);
+    SRRG_TO_ROS_HEADER((*message_out), (*message_in_));
+
+    // ia convert the actual message
+    message_out->status.status            = message_in_->status.value();
+    message_out->status.service           = message_in_->service.value();
+    message_out->position_covariance_type = message_in_->covariance_type.value();
+    message_out->latitude                 = message_in_->latitude.value();
+    message_out->longitude                = message_in_->longitude.value();
+
+    // ia eye-disturbing altitude conversion
+    if (message_in_->has_altitude.value()) {
+      message_out->altitude = message_in_->altitude.value();
+    } else {
+      message_out->altitude = std::nan(""); // ia I hate ros
+    }
+
+    // ia finally the covariance
+    SRRG_TO_ROS_MAT3(message_out->position_covariance, message_in_->covariance);
 
     return message_out;
   }

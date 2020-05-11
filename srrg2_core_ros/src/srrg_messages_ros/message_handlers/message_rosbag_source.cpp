@@ -23,7 +23,9 @@ namespace srrg2_core_ros {
 
   void MessageROSBagSource::open() {
     _view.reset(nullptr);
+    std::cerr << "opening bag... ";
     _bag.open(param_filename.value());
+    std::cerr << "done" << std::endl;
     if (param_topics.size()) {
       _view.reset(new rosbag::View(_bag, rosbag::TopicQuery(param_topics.value())));
     } else {
@@ -51,7 +53,6 @@ namespace srrg2_core_ros {
     if (!_view) {
       return BaseSensorMessagePtr(0);
     }
-
     while (_view_it != _view->end() && _running) {
       const std::string& topic_name = _view_it->getTopic();
       const std::string& data_type  = _view_it->getDataType();
@@ -65,7 +66,6 @@ namespace srrg2_core_ros {
       //      the topic you want to subscribe are chosen in the config file
       //      and the message contains the topic field so you can discriminate in case of different
       //      topics with same datatype
-
       CONVERT(sensor_msgs::CameraInfo);
       CONVERT(sensor_msgs::Image);
       CONVERT(sensor_msgs::Imu);
@@ -77,6 +77,7 @@ namespace srrg2_core_ros {
       CONVERT(geometry_msgs::TwistStamped);
       CONVERT(sensor_msgs::PointCloud2);
       CONVERT(sensor_msgs::JointState);
+      CONVERT(sensor_msgs::NavSatFix);
 
       _view_it++;
       if (!srrg_message) {
@@ -87,7 +88,6 @@ namespace srrg2_core_ros {
         }
         continue;
       }
-
       // ds convert input and attempt downcast
       if (BaseSensorMessagePtr srrg_base_message =
             std::dynamic_pointer_cast<BaseSensorMessage>(srrg_message)) {

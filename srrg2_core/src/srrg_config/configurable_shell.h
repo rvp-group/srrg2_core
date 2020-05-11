@@ -6,7 +6,7 @@ namespace srrg2_core {
 
   class ConfigurableShell {
   public:
-    ConfigurableShell();
+    ConfigurableShell(ConfigurableManager& manager_);
     virtual ~ConfigurableShell();
     struct CommandBase {
       CommandBase(ConfigurableShell* shell_,
@@ -53,7 +53,7 @@ namespace srrg2_core {
     void confLineCompletions(StringVector& completions, const char* line);
 
     ConfigurablePtr getConfigurable(const std::string& name);
-    srrg2_core::ConfigurableManager _manager;
+    srrg2_core::ConfigurableManager& _manager;
     void addCommand(CommandBase* cmd);
     void removeCommand(const std::string& tag_);
     CommandMap _command_map;

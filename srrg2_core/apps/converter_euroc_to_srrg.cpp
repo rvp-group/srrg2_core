@@ -27,7 +27,8 @@ void loadIMUInformation(const std::string& folder_imu_data_,
                         double& gyroscope_noise_density_,
                         double& gyroscope_random_walk_,
                         double& accelerometer_noise_density_,
-                        double& accelerometer_random_walk_);
+                        double& accelerometer_random_walk_,
+                        Isometry3f& imu_in_base_link_);
 
 void loadCameraCalibration(const std::string& file_path_camera_calibration_,
                            Matrix3f& camera_calibration_matrix_left_,
@@ -42,8 +43,6 @@ void serializeCameraImageAndInfo(Serializer& serializer_,
                                  const std::string& distortion_model_name_,
                                  const Vector5d& distortion_coefficients_,
                                  const Matrix3f& camera_matrix_,
-                                 const Isometry3f& imu_from_camera_,
-                                 const Isometry3f& transformation_right_from_left_,
                                  const bool& enable_rectification_,
                                  const cv::Mat* undistort_rectify_maps_,
                                  const Matrix3f& camera_matrix_rectified_);
@@ -174,6 +173,10 @@ int main(int argc_, char** argv_) {
     std::cerr << camera_left_to_right.matrix() << std::endl;
   }
 
+  camera_left_to_right = camera_left_to_right.inverse();
+  std::cerr << "camera RIGHT in LEFT: " << std::endl;
+  std::cerr << camera_left_to_right.matrix() << std::endl;
+
   // ds load IMU information
   std::vector<double> timestamps_imu;
   StdVectorEigenVector3d angular_velocities;
@@ -183,6 +186,7 @@ int main(int argc_, char** argv_) {
   double gyroscope_random_walk;
   double accelerometer_noise_density;
   double accelerometer_random_walk;
+  Isometry3f imu_in_base_link(Isometry3f::Identity());
   if (argument_folder_imu.isSet() && !argument_folder_imu.value().empty()) {
     loadIMUInformation(argument_folder_imu.value(),
                        angular_velocities,
@@ -192,12 +196,13 @@ int main(int argc_, char** argv_) {
                        gyroscope_noise_density,
                        gyroscope_random_walk,
                        accelerometer_noise_density,
-                       accelerometer_random_walk);
+                       accelerometer_random_walk,
+                       imu_in_base_link);
   }
 
   // ds stop before starting to allow for a quick configuration inspection
-  std::cerr << "press [ENTER] to start conversion" << std::endl;
-  getchar();
+  //  std::cerr << "press [ENTER] to start conversion" << std::endl;
+  //  getchar();
 
   // ds playback configuration UAGHS
   constexpr double timestamp_tolerance_seconds = 0.01;
@@ -221,6 +226,21 @@ int main(int argc_, char** argv_) {
   std::cerr << std::setprecision(16);
   std::cerr << "initial timestamp (s): " << timestamp_oldest << std::endl;
 
+  TransformEventsMessagePtr tf_static_message(
+    new TransformEventsMessage("/tf_static", "/imu", index_gt, timestamp_oldest));
+  tf_static_message->events.resize(3);
+
+  TransformEvent event_imu_in_base_link(0, "imu", imu_in_base_link, "base_link");
+  TransformEvent event_camera_left_in_base_link(
+    0, "camera_left", imu_from_camera_left, "base_link");
+  TransformEvent event_camera_right_in_left(0, "camera_right", camera_left_to_right, "camera_left");
+
+  tf_static_message->events.setValue(0, event_imu_in_base_link);
+  tf_static_message->events.setValue(1, event_camera_left_in_base_link);
+  tf_static_message->events.setValue(2, event_camera_right_in_left);
+  std::cerr << "T";
+  serializer.writeObject(*tf_static_message);
+
   // ds playback all buffers
   while (index_gt < timestamps_seconds_gt.size() ||
          index_camera_left < timestamps_camera_left.size() ||
@@ -231,12 +251,10 @@ int main(int argc_, char** argv_) {
       // ds if the timestamp is close enough to the currently smallest timestamp
       if (std::fabs(timestamp_candidate - timestamp_oldest) < timestamp_tolerance_seconds) {
         // ds write message
-        TransformEventsMessagePtr transform_message(
-          new TransformEventsMessage("/tf", "/imu", index_gt, timestamp_candidate));
-        transform_message->events.resize(1);
-        TransformEvent event_gt(timestamp_candidate, "imu", imu_poses_in_world[index_gt], "world");
-        transform_message->events.setValue(0, event_gt);
-        serializer.writeObject(*transform_message);
+        OdometryMessagePtr gt_imu_in_world(
+          new OdometryMessage("/ground_truth", "/base_link", index_gt, timestamp_candidate));
+        gt_imu_in_world->pose.setValue(imu_poses_in_world[index_gt]);
+        serializer.writeObject(*gt_imu_in_world);
         std::cerr << "G";
         ++index_gt;
       }
@@ -255,8 +273,6 @@ int main(int argc_, char** argv_) {
                                     distortion_model_name,
                                     distortion_coefficients_left,
                                     camera_calibration_matrix_left,
-                                    imu_from_camera_left,
-                                    camera_left_to_right,
                                     param_enable_rectification.isSet(),
                                     undistort_rectify_maps_left,
                                     camera_calibration_matrix_rectified);
@@ -276,8 +292,6 @@ int main(int argc_, char** argv_) {
                                     distortion_model_name,
                                     distortion_coefficients_right,
                                     camera_calibration_matrix_right,
-                                    imu_from_camera_right,
-                                    camera_left_to_right,
                                     param_enable_rectification.isSet(),
                                     undistort_rectify_maps_right,
                                     camera_calibration_matrix_rectified);
@@ -409,7 +423,8 @@ void loadIMUInformation(const std::string& folder_imu_data_,
                         double& gyroscope_noise_density_,
                         double& gyroscope_random_walk_,
                         double& accelerometer_noise_density_,
-                        double& accelerometer_random_walk_) {
+                        double& accelerometer_random_walk_,
+                        Isometry3f& imu_in_base_link_) {
   const std::string file_path_imu_data(folder_imu_data_ + "/data.csv");
   std::ifstream stream_imu_data(file_path_imu_data);
   if (!stream_imu_data.good() || !stream_imu_data.is_open()) {
@@ -452,6 +467,28 @@ void loadIMUInformation(const std::string& folder_imu_data_,
     throw std::runtime_error("ERROR: unable to open IMU parameters file: '" +
                              file_path_imu_parameters + "'");
   }
+
+  // ds evil parsing - skip lines until we hit the transform 'data' line
+  for (size_t i = 0; i < 8; ++i) {
+    std::getline(stream_imu_parameters, buffer);
+  }
+
+  // ds parse transform by tokens
+  for (size_t r = 0; r < 4; ++r) {
+    for (size_t c = 0; c < 4; ++c) {
+      char delimiter = ',';
+      if (r == 3 && c == 3) {
+        delimiter = ']';
+      }
+      std::getline(stream_imu_parameters, buffer, delimiter);
+      const size_t index_begin = buffer.find_last_of('[');
+      if (index_begin != std::string::npos) {
+        buffer = buffer.substr(index_begin + 1);
+      }
+      imu_in_base_link_.matrix()(r, c) = std::stod(buffer);
+    }
+  }
+
   while (getline(stream_imu_parameters, buffer)) {
     _setValueByKey(buffer, "rate_hz: ", rate_hz_);
     _setValueByKey(buffer, "gyroscope_noise_density: ", gyroscope_noise_density_);
@@ -590,8 +627,6 @@ void serializeCameraImageAndInfo(Serializer& serializer_,
                                  const std::string& distortion_model_name_,
                                  const Vector5d& distortion_coefficients_,
                                  const Matrix3f& camera_matrix_,
-                                 const Isometry3f& imu_from_camera_,
-                                 const Isometry3f& transformation_right_from_left_,
                                  const bool& enable_rectification_,
                                  const cv::Mat* undistort_rectify_maps_,
                                  const Matrix3f& camera_matrix_rectified_) {
@@ -640,27 +675,8 @@ void serializeCameraImageAndInfo(Serializer& serializer_,
     camera_info_message->camera_matrix.setValue(camera_matrix_);
   }
 
-  // ds provide relative transform between left and right camera
-  TransformEventsMessagePtr transform_message(
-    new TransformEventsMessage("/tf",
-                               image_message->frame_id.value(),
-                               image_message->seq.value(),
-                               image_message->timestamp.value()));
-  TransformEvent event_stereo(image_message->timestamp.value(),
-                              "camera_right", // ds TODO change this to slashed version!
-                              transformation_right_from_left_,
-                              "camera_left"); // ds TODO change this to slashed version!
-  TransformEvent event_anchor(image_message->timestamp.value(),
-                              "imu", // ds TODO change this to slashed version!
-                              imu_from_camera_,
-                              label_); // ds TODO change this to slashed version!
-  transform_message->events.resize(2);
-  transform_message->events.setValue(0, event_stereo);
-  transform_message->events.setValue(1, event_anchor);
-
   // ds write messages related to this image
   serializer_.writeObject(*camera_info_message);
-  serializer_.writeObject(*transform_message);
   serializer_.writeObject(*image_message);
   if (label_ == "camera_left") {
     std::cerr << "L";
