@@ -1,3 +1,16 @@
+catkin_add_gtest(test_abstract_map test_abstract_map.cpp)
+
+catkin_add_gtest(test_geometry test_geometry.cpp)
+
+catkin_add_gtest(test_matrix_bilinear_interpolation test_matrix_bilinear_interpolation.cpp)
+
+#ia TODO
+catkin_add_gtest(test_image_data test_image_data.cpp)
+target_link_libraries(test_image_data
+  srrg2_system_utils_library
+  srrg2_image_library
+)
+
 catkin_add_gtest(test_points test_points.cpp)
 target_link_libraries(test_points
   srrg2_point_cloud_library
@@ -65,3 +78,7 @@ target_link_libraries(test_matchables
 
 catkin_add_gtest(test_similiarity test_similiarity.cpp)
 target_link_libraries(test_similiarity)
+
+catkin_add_gtest(test_epipolar test_epipolar.cpp)
+target_link_libraries(test_epipolar
+  srrg2_geometry_library)

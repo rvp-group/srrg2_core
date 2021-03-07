@@ -51,9 +51,17 @@ namespace srrg2_core {
                              const size_t& number_of_message_packs_to_read_ = -1,
                              const size_t& number_of_message_pack_to_start_ = 0) = 0;
 
+    virtual void loadDatasetWithTF(const std::string& filepath_,
+                                   MessageSourcePlatformPtr platform_source_,
+                                   const size_t& number_of_message_packs_to_read_ = -1,
+                                   const size_t& number_of_message_pack_to_start_ = 0) {
+    }
     //! loads ground truth poses from file (s)
     virtual void loadGroundTruth(const std::string& filepath_,
                                  const std::string& filepath_additional_ = std::string()) = 0;
+
+    virtual void loadGroundTruthFromBOSS(const std::string& filepath_, const std::string& topic_) {
+    }
 
     //! fetch the next message from memory (buffered with loadDataset)
     virtual BaseSensorMessagePtr getMessage() = 0;

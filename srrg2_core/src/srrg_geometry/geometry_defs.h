@@ -280,4 +280,33 @@ namespace srrg2_core {
     return (M_PI / 180.0f) * degs_;
   }
 
+  template <typename MatrixType>
+  using PseudoInverseType = Eigen::Matrix<typename MatrixType::Scalar,
+                                          MatrixType::ColsAtCompileTime,
+                                          MatrixType::RowsAtCompileTime>;
+
+  template <typename MatrixType>
+  PseudoInverseType<MatrixType> pseudoInverse(const MatrixType& a) {
+    typename MatrixType::Scalar epsilon =
+      std::numeric_limits<typename MatrixType::Scalar>::epsilon();
+    using WorkingMatrixType = Eigen::Matrix<typename MatrixType::Scalar,
+                                            Eigen::Dynamic,
+                                            Eigen::Dynamic,
+                                            0,
+                                            MatrixType::MaxRowsAtCompileTime,
+                                            MatrixType::MaxColsAtCompileTime>;
+    Eigen::BDCSVD<WorkingMatrixType> svd(a, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    svd.setThreshold(epsilon * std::max(a.cols(), a.rows()));
+    Eigen::Index rank = svd.rank();
+    Eigen::Matrix<typename MatrixType::Scalar,
+                  Eigen::Dynamic,
+                  MatrixType::RowsAtCompileTime,
+                  0,
+                  Eigen::BDCSVD<MatrixType>::MaxDiagSizeAtCompileTime,
+                  MatrixType::MaxRowsAtCompileTime>
+      tmp = svd.matrixU().leftCols(rank).adjoint();
+    tmp   = svd.singularValues().head(rank).asDiagonal().inverse() * tmp;
+    return svd.matrixV().leftCols(rank) * tmp;
+  }
+
 } // namespace srrg2_core

@@ -20,7 +20,6 @@
 extern char** environ;
 
 namespace srrg2_core {
-  using namespace std;
 
   void _register_dynamic_loader() __attribute__((constructor));
 
@@ -32,28 +31,43 @@ namespace srrg2_core {
 
   void DynamicLoaderConfig::deserializeComplete() {
     std::vector<std::string> complete_paths;
+    const size_t total_so_names = so_names.value().size();
+    size_t so_names_found       = 0;
+
     for (const auto& so_it : so_names.value()) {
       bool found = false;
       std::string complete_path;
+
+      // ia for each path
       for (const auto& p_it : so_paths.value()) {
+        // construct full path and replaces the env vars
         complete_path = p_it + "/" + so_it;
-        // replaces the env vars
         replaceEnvTags(complete_path);
-        cerr << "DynamicLoaderConfig| looking for file [" << complete_path << " ] ";
-        ifstream is(complete_path);
-        if (is.good()) {
+#ifndef NDEBUG
+        std::cerr << "DynamicLoaderConfig|looking for file [" << complete_path << " ] ... ";
+#endif
+
+        // ia check if path exists ( fastest way :) )
+        if (srrg2_core::isAccessible(complete_path)) {
           complete_paths.push_back(complete_path);
           found = true;
-          cerr << "FOUND" << endl;
-          break;
+          ++so_names_found;
+#ifndef NDEBUG
+          std::cerr << "FOUND" << std::endl;
+#endif
         } else {
-          cerr << "NOT_FOUND" << endl;
+#ifndef NDEBUG
+          std::cerr << FG_RED("NOT_FOUND") << std::endl;
+#endif
         }
       }
       if (!found) {
-        std::cerr << "DynamicLoaderConfig| unable to find [" << so_it << "] in paths";
+        std::cerr << "DynamicLoaderConfig|unable to find [ " << FG_RED(so_it) << " ] in paths";
       }
     }
+
+    std::cerr << "DynamicLoaderConfig|found [ "
+              << FG_YELLOW(so_names_found << "/" << total_so_names) << " ] libraries\n";
     PropertyContainerManager::initFactory(complete_paths);
   }
 
@@ -65,8 +79,8 @@ namespace srrg2_core {
       std::shared_ptr<DynamicLoaderConfig> loader_ptr =
         std::dynamic_pointer_cast<DynamicLoaderConfig>(o);
       if (loader_ptr) {
-        std::cerr << "loaded config paths from file [" << loader_config_filename << "]"
-                  << std::endl;
+        std::cerr << "PropertyContainerManager::initFactory|loaded config paths from file [ "
+                  << loader_config_filename << " ]" << std::endl;
         break;
       }
     }
@@ -80,16 +94,33 @@ namespace srrg2_core {
   }
 
   void PropertyContainerManager::initFactory(const std::vector<std::string>& library_paths) {
+    const size_t total_so_to_open = library_paths.size();
+    size_t so_opened              = 0;
+
     for (const auto& it : library_paths) {
-      std::cerr << "opening library [" << FG_YELLOW(it) << "]";
+#ifndef NDEBUG
+      std::cerr << "PropertyContainerManager::initFactory|opening library [ " << FG_YELLOW(it)
+                << "] ... ";
+#endif
       void* handle = dlopen(it.c_str(), RTLD_LAZY);
       if (!handle) {
+#ifndef NDEBUG
         std::cerr << FG_RED("ERROR") << std::endl;
-        std::cerr << FG_RED(dlerror()) << std::endl;
+#endif
+        std::cerr << "PropertyContainerManager::initFactory|library [ " << FG_BWHITE(it)
+                  << " ] -- error:\n"
+                  << FG_RED(dlerror()) << std::endl;
       } else {
-        std::cerr << FG_GREEN("OK") << std::endl;
+        ++so_opened;
+#ifndef NDEBUG
+        std::cerr << FG_GREEN("SUCCESS") << std::endl;
+#endif
       }
     }
+
+    // ia log something
+    std::cerr << "PropertyContainerManager::initFactory|opened [ "
+              << FG_YELLOW(so_opened << "/" << total_so_to_open) << " ] libraries\n";
 
     // now we try a cast to initiate the types
     std::vector<PropertyContainerIdentifiablePtr> configurables;
@@ -168,7 +199,7 @@ namespace srrg2_core {
       auto it = _named_instances.find(c->name());
       if (it != _named_instances.end()) {
         DEBUG(module_manager_debug) << "error: a config with the same name: [" << c->name() << "] "
-                                    << " already exists in the system" << endl;
+                                    << " already exists in the system" << std::endl;
         continue;
       }
       _named_instances.insert(std::make_pair(c->name(), c));
@@ -201,19 +232,19 @@ namespace srrg2_core {
     if (conf->name().length()) {
       auto it = _named_instances.find(conf->name());
       if (it == _named_instances.end()) {
-        throw("config name mismatch");
+        throw("PropertyContainerManager::rename|config name mismatch");
       }
       _named_instances.erase(it);
     }
     if (name.length()) {
       auto it = _named_instances.find(name);
       if (it != _named_instances.end()) {
-        throw("config name already existing");
+        throw("PropertyContainerManager::rename|config name already existing");
       }
       _named_instances.insert(std::make_pair(name, conf));
     }
     conf->setName(name);
-    DEBUG(module_manager_debug) << "all right" << endl;
+    DEBUG(module_manager_debug) << "all right" << std::endl;
   }
 
   // retrieves a configurable whose hame is config_name
@@ -241,12 +272,15 @@ namespace srrg2_core {
     if (add(p)) {
       return p;
     }
+    std::cerr << "PropertyContainerManager::create|WARNING, cannot create object [ " << classname
+              << " ] with name [ " << name << " ] (maybe name is already in use?)\n";
     return 0;
   }
 
   // adds to the managed system a new configurable (and all connected objects)
   bool PropertyContainerManager::add(PropertyContainerIdentifiablePtr c) {
-    std::cerr << "add containers! [" << c->className() << "]" << std::endl;
+    std::cerr << "PropertyContainerManager::add|adding container [ " << c->className() << " ]"
+              << std::endl;
     if (_instances.count(c)) {
       return false;
     }
@@ -261,9 +295,10 @@ namespace srrg2_core {
     }
     std::set<PropertyContainerIdentifiablePtr> reachable;
     c->getReacheableContainers(reachable);
-    std::cerr << "containers added! [" << c->className() << "]" << std::endl;
+    std::cerr << "PropertyContainerManager::add|container [ " << c->className() << " ] added"
+              << std::endl;
     for (PropertyContainerIdentifiablePtr r : reachable) {
-      std::cerr << "renaming: " << r << " to ''" << std::endl;
+      std::cerr << "PropertyContainerManager::add|renaming [ " << r << " ] to ''" << std::endl;
       r->setName(""); // ds TODO is overwriting the name intended?
       _instances.insert(r);
       _objects.insert(r);
@@ -274,24 +309,24 @@ namespace srrg2_core {
   // erases a configurable from the managed system
   // detaching it from all connected confs
   void PropertyContainerManager::erase(PropertyContainerIdentifiablePtr erased) {
-    DEBUG(module_manager_debug) << "object " << endl;
+    DEBUG(module_manager_debug) << "object " << std::endl;
     auto o_it = _objects.find(erased);
     if (o_it == _objects.end()) {
-      DEBUG(module_manager_debug) << "no object: " << endl;
+      DEBUG(module_manager_debug) << "no object: " << std::endl;
       return;
     }
     _objects.erase(o_it);
 
-    DEBUG(module_manager_debug) << "names" << endl;
+    DEBUG(module_manager_debug) << "names" << std::endl;
     if (erased->name().length()) {
       _named_instances.erase(erased->name());
     }
 
     for (PropertyContainerIdentifiablePtr other : _instances) {
-      DEBUG(module_manager_debug) << other->className() << endl;
+      DEBUG(module_manager_debug) << other->className() << std::endl;
 
       for (auto prop_it : other->_properties_identifiable) {
-        DEBUG(module_manager_debug) << "  " << prop_it->name() << endl;
+        DEBUG(module_manager_debug) << "  " << prop_it->name() << std::endl;
 
         PropertyIdentifiablePtrVectorInterface* v_prop =
           dynamic_cast<PropertyIdentifiablePtrVectorInterface*>(prop_it);

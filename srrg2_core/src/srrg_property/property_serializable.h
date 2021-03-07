@@ -72,6 +72,11 @@ namespace srrg2_core {
       this->touch();
     }
 
+    inline void clear() {
+      this->_value.clear();
+      this->touch();
+    }
+
     inline const typename ValueType::value_type& value(int idx) const {
       return this->_value[idx];
     }
@@ -80,11 +85,15 @@ namespace srrg2_core {
       return this->_value[idx];
     }
 
+    inline void pushBack(const typename ValueType::value_type& v) {
+      return this->_value.push_back(v);
+    }
+
     inline void setValue(int idx, typename ValueType::value_type& v) {
       this->_value[idx] = v;
       this->touch();
     }
-
+    
     void serialize(ObjectData& odata, IdContext& context) override {
       ArrayData* adata = new ArrayData;
       for (size_t i = 0; i < this->_value.size(); ++i) {

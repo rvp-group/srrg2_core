@@ -1,5 +1,8 @@
 #include "message_ros_source.h"
 #include <srrg_system_utils/system_utils.h>
+#include <srrg_config/configurable_command.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 namespace srrg2_core_ros {
 
@@ -9,16 +12,48 @@ namespace srrg2_core_ros {
       throw std::runtime_error("rosInit| missing call to srrgInit. Aborting.");
     }
     if (!ros_initialized) {
-      ros::init(srrg2_core::srrg_argc, srrg2_core::srrg_argv, srrg2_core::srrg_opts.c_str());
+      ros::init(srrg2_core::srrg_argc,
+                srrg2_core::srrg_argv,
+                srrg2_core::srrg_opts.c_str(),
+                ros::InitOption::NoSigintHandler|ros::InitOption::AnonymousName);
     }
     ros_initialized = true;
   }
 
   MessageROSSource::MessageROSSource() {
+    addCommand (new srrg2_core::ConfigurableCommand_
+                < MessageROSSource,
+                typeof(&MessageROSSource::cmdOpen),
+                std::string>
+                (this,
+                 "open",
+                 "starts receiving messages",
+                 &MessageROSSource::cmdOpen));
+
+    addCommand (new srrg2_core::ConfigurableCommand_
+                < MessageROSSource,
+                typeof(&MessageROSSource::cmdClose),
+                std::string>
+                (this,
+                 "close",
+                 "starts receiving messages",
+                 &MessageROSSource::cmdClose));
     rosInit();
     _message_queue.clear();
     _subscribers.clear();
     topics_to_process.clear();
+  }
+
+  bool MessageROSSource::cmdOpen(std::string& response) {
+    open();
+    response = "source opened";
+    return true;
+  }
+
+  bool MessageROSSource::cmdClose(std::string& response) {
+    close();
+    response = "source closed";
+    return true;
   }
 
   void MessageROSSource::open() {
@@ -69,53 +104,63 @@ namespace srrg2_core_ros {
       if (ttp.datatype == "sensor_msgs/CameraInfo") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_cameraInfoCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<sensor_msgs::CameraInfo>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_cameraInfoCallback, this, _1, ttp.name) ) );
       } else if (ttp.datatype == "sensor_msgs/Image") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_imageCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<sensor_msgs::Image>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_imageCallback, this, _1, ttp.name) ) );
       } else if (ttp.datatype == "sensor_msgs/Imu") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_imuCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<sensor_msgs::Imu>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_imuCallback, this, _1, ttp.name ) ) );
       } else if (ttp.datatype == "nav_msgs/Odometry") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_odometryCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<nav_msgs::Odometry>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_odometryCallback, this, _1, ttp.name ) ) );
       } else if (ttp.datatype == "geometry_msgs/PointStamped") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_pointStampedCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<geometry_msgs::PointStamped>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_pointStampedCallback, this, _1, ttp.name ) ) );
       } else if (ttp.datatype == "sensor_msgs/LaserScan") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_laserScanCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<sensor_msgs::LaserScan>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_laserScanCallback, this, _1, ttp.name ) ) );
       } else if (ttp.datatype == "sensor_msgs/Range") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_rangeCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<sensor_msgs::Range>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_rangeCallback, this, _1, ttp.name ) ) );
       } else if (ttp.datatype == "tf2_msgs/TFMessage") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_tfMessageCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<tf2_msgs::TFMessage>
+                               (ttp.name, 20, boost::bind(&MessageROSSource::_tfMessageCallback, this, _1, ttp.name ) ) );
       } else if (ttp.datatype == "geometry_msgs/TwistStamped") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_twistStampedCallback, this));
+        _subscribers.push_back(_node_handle.subscribe<geometry_msgs::TwistStamped>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_twistStampedCallback, this, _1, ttp.name ) ) );
       } else if (ttp.datatype == "sensor_msgs/PointCloud2") {
         ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
            << std::endl;
-        _subscribers.push_back(
-          _node_handle.subscribe(ttp.name, 1, &MessageROSSource::_pointCloud2Callback, this));
+        _subscribers.push_back(_node_handle.subscribe<sensor_msgs::PointCloud2>
+                               (ttp.name, 1, boost::bind(&MessageROSSource::_pointCloud2Callback, this, _1, ttp.name ) ) );
+      } else if (ttp.datatype == "geometry_msgs/PoseWithCovarianceStamped") {
+        ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
+           << std::endl;
+        _subscribers.push_back(_node_handle.subscribe<geometry_msgs::PoseWithCovarianceStamped>
+                               (ttp.name, 100, boost::bind(&MessageROSSource::_poseWithCovarianceStampedCallback, this, _1, ttp.name ) ) );
+      } else if (ttp.datatype == "geometry_msgs/PoseStamped") {
+        ss << "subscribing to topic " << ttp.name << " publishing " << ttp.datatype << " messages"
+           << std::endl;
+        _subscribers.push_back(_node_handle.subscribe<geometry_msgs::PoseStamped>
+                               (ttp.name, 100, boost::bind(&MessageROSSource::_poseStampedCallback, this, _1, ttp.name ) ) );
       } else {
         ss << "unable to convert " << ttp.datatype << " messages (no topic registered)"
            << std::endl;
@@ -146,64 +191,118 @@ namespace srrg2_core_ros {
   }
 
   srrg2_core::BaseSensorMessagePtr MessageROSSource::getMessage() {
-    _message_queue.clear();
-    ros::spinOnce();
-    if (_message_queue.empty()) {
-      return 0;
+    while (_message_queue.empty() && _is_open) {
+      ros::spinOnce();
+      usleep(10000);
     }
-
-    // srrg we use message pack since it is possible that more messages arrives in a single
-    //     spin, thus we encapsule everything in a pack
-    srrg2_core::MessagePackPtr pack =
-      srrg2_core::MessagePackPtr(new srrg2_core::MessagePack("", "", _sequence_number, 0));
-    for (auto msg : _message_queue) {
-      pack->messages.push_back(
-        std::dynamic_pointer_cast<srrg2_core::BaseSensorMessage>(msg.second));
-    }
-    ++_sequence_number;
-    _message_queue.clear();
-    return pack;
+    if (! _is_open)
+      return nullptr;
+    
+    auto it=_message_queue.begin();
+    srrg2_core::BaseSensorMessagePtr returned=it->second;
+    _message_queue.erase(it);
+    if (returned)
+      return returned;
+    return nullptr;
   }
 
-  void MessageROSSource::_cameraInfoCallback(const sensor_msgs::CameraInfoConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  
+  void MessageROSSource::_cameraInfoCallback(const sensor_msgs::CameraInfoConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
-  void MessageROSSource::_imageCallback(const sensor_msgs::ImageConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_imageCallback(const sensor_msgs::ImageConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
-  void MessageROSSource::_imuCallback(const sensor_msgs::ImuConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_imuCallback(const sensor_msgs::ImuConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
-  void MessageROSSource::_odometryCallback(const nav_msgs::OdometryConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_odometryCallback(const nav_msgs::OdometryConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
-  void MessageROSSource::_pointStampedCallback(const geometry_msgs::PointStampedConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_pointStampedCallback(const geometry_msgs::PointStampedConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
-  void MessageROSSource::_laserScanCallback(const sensor_msgs::LaserScanConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_laserScanCallback(const sensor_msgs::LaserScanConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
-  void MessageROSSource::_rangeCallback(const sensor_msgs::RangeConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_rangeCallback(const sensor_msgs::RangeConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
-  void MessageROSSource::_tfMessageCallback(const tf2_msgs::TFMessageConstPtr& msg_) {
-    _message_queue.insert(
-      std::make_pair(msg_->transforms[0].header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_tfMessageCallback(const tf2_msgs::TFMessageConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg_->transforms[0].header.stamp.toSec(), msg));
   }
 
-  void MessageROSSource::_twistStampedCallback(const geometry_msgs::TwistStampedConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_twistStampedCallback(const geometry_msgs::TwistStampedConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
-  void MessageROSSource::_pointCloud2Callback(const sensor_msgs::PointCloud2ConstPtr& msg_) {
-    _message_queue.insert(std::make_pair(msg_->header.stamp.toSec(), Converter::convert(msg_)));
+  void MessageROSSource::_poseStampedCallback(const geometry_msgs::PoseStampedConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    std::cerr << "received PoseStamped , topic: [" << topic_name << "]" << std::endl;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
+  }
+
+  void MessageROSSource::_poseWithCovarianceStampedCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    std::cerr << "received PoseWithCovarianceStamped , topic: [" << topic_name << "]" << std::endl;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
+  }
+
+  void MessageROSSource::_pointCloud2Callback(const sensor_msgs::PointCloud2ConstPtr& msg_, const std::string& topic_name) {
+    srrg2_core::BaseSensorMessagePtr msg=Converter::convert(msg_);
+    if (! msg)
+      return;
+    msg->topic.setValue(topic_name);
+    _message_queue.insert(std::make_pair(msg->timestamp.value(), msg));
   }
 
   srrg2_core::MessageSourceBase* MessageROSSource::getRootSource() {
@@ -213,6 +312,9 @@ namespace srrg2_core_ros {
   MessageROSSource::~MessageROSSource() {
     if (_is_open) {
       this->close();
+    }
+    if (_node_handle.ok()) {
+      _node_handle.shutdown();
     }
   }
 

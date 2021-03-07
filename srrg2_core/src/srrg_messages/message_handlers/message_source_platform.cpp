@@ -1,9 +1,11 @@
 #include "message_source_platform.h"
-#include <typeinfo>
+#include "srrg_system_utils/shell_colors.h"
 
 namespace srrg2_core {
 
-  MessageSourcePlatform::~MessageSourcePlatform() {
+  MessageSourcePlatform::MessageSourcePlatform() {
+    std::cerr << RED << className() << "| is deprecated. Please revise your pipeline using sinks"
+              << RESET << std::endl;
   }
 
   void MessageSourcePlatform::bindTfTopics() {
@@ -25,8 +27,6 @@ namespace srrg2_core {
            "MessageSourcePlatform::getMessage|you need to set a valid source");
 
     if (!_tf_topics_binded) {
-      // throw std::runtime_error("MessageSourcePlatform::getMessage|did you forget to call the
-      // bindTfTopics function?");
       bindTfTopics();
     }
 
@@ -37,20 +37,11 @@ namespace srrg2_core {
       return nullptr;
     }
 
-    //    std::cerr << "MessageSourcePlatform::getMessage|typeid hash_code= " <<
-    //    FG_YELLOW(typeid(*(msg.get())).hash_code()) << std::endl; std::cerr <<
-    //    "MessageSourcePlatform::getMessage|typeid name     = " <<
-    //    FG_YELLOW(typeid(*(msg.get())).name()) << std::endl; std::cerr <<
-    //    "MessageSourcePlatform::getMessage|boss class_name = " << FG_RED(msg->className()) <<
-    //    std::endl;
-
     StringPlatformPtrMap::const_iterator p_it = _platforms_map.find(msg->topic.value());
     if (p_it != _platforms_map.end() && (!p_it->second->add(msg))) {
       std::cerr << FG_RED("problems with topic: ");
       std::cerr << FG_BLUE(msg->topic.value()) << std::endl;
       throw std::runtime_error("MessageSourcePlatform::getMessage|invalid TF topic");
-      //      std::cerr << "MessageSourcePlatform::getMessage|platform " << p_it->first << " size =
-      //      " << p_it->second->size() << std::endl;
     }
     return msg;
   }

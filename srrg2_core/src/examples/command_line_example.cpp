@@ -29,6 +29,7 @@ int main(int argc, char** argv) {
   ArgumentDouble a_d(&cmd_line,    "d", "double",  "this is a double",   2.5);
   ArgumentString a_s(&cmd_line,    "s", "string",  "this is a string",   "boh");
   ArgumentFlag   a_flag(&cmd_line, "f", "flag",    "this is a flag");
+  ArgumentFloatVector_<3> fv_flag(& cmd_line, "vf", "float vector", "this is a vector", {0,0,0});
   
   //   Call the parse, that will go through the command line
   //   if -h or --help are called, the banner will be printed with the options

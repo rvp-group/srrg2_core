@@ -50,11 +50,17 @@ namespace srrg2_core {
   }
 
   void PropertyBase::serialize(ObjectData& odata, IdContext& id_context) {
-    throw std::runtime_error("PropertyBase::serialize| not implemented");
+    //    std::cerr << "PropertyBase::serialize|WARNING, property [ " << _name
+    //              << " ] has no valid serialization method" << std::endl;
+    throw std::runtime_error("PropertyBase::serialize|ERROR, not implemented for property [ " +
+                             _name + " ]");
   }
 
   void PropertyBase::deserialize(ObjectData& odata, IdContext& id_context) {
-    throw std::runtime_error("PropertyBase::deserialize| not implemented");
+    //    std::cerr << "PropertyBase::deserialize|WARNING, property [ " << _name
+    //              << " ] has no valid deserialization method" << std::endl;
+    throw std::runtime_error("PropertyBase::deserialize|ERROR, not implemented for property [ " +
+                             _name + " ]");
   }
 
   bool PropertyBase::fromTokens(std::vector<std::string>& tokens) {
@@ -135,13 +141,11 @@ namespace srrg2_core {
 
   MAKE_TRIVIAL_FROM_TOKENS(PropertyUnsignedInt)
 
-  void PropertyUnsignedInt::serialize(ObjectData& odata,
-                                      IdContext& id_context) {
+  void PropertyUnsignedInt::serialize(ObjectData& odata, IdContext& id_context) {
     odata.setUnsignedInt(this->_name, this->_value, this->_description.c_str());
   }
 
-  void PropertyUnsignedInt::deserialize(ObjectData& odata,
-                                        IdContext& id_context) {
+  void PropertyUnsignedInt::deserialize(ObjectData& odata, IdContext& id_context) {
     setValue(odata.getUnsignedInt(this->_name));
   }
 

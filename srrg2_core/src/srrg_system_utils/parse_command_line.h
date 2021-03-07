@@ -52,32 +52,58 @@ namespace srrg2_core {
     ArgumentFlag _help_arg;
   };
 
-  template <typename ArgumentType_>
+  template <typename ArgumentType_, int NumFields_=1>
   struct Argument_: public ArgumentFlag {
       
     using ArgumentType=ArgumentType_;
     const ArgumentType_& value() {return _value;}
+    static constexpr int NumFields=NumFields_;
+  
     Argument_(ParseCommandLine* cmd_line,
               const std::string& option,
               const std::string& long_option,
               const std::string& explanation,
-              const ArgumentType_& default_value,
-              int num_fields=1):
-      ArgumentFlag(cmd_line,option,long_option, explanation, num_fields),
-      _value(default_value)
-    {}
+              const ArgumentType_& default_value):
+      ArgumentFlag(cmd_line,option,long_option, explanation, NumFields)  {
+      if constexpr(NumFields==1) {
+          _value=default_value;
+        } else {
+        for (int i=0; i<NumFields; ++i)
+          _value[i]=default_value[i];
+      }
+
+    }
 
     char** parseArgument(char** argv) override {
-      if (!*argv)
-        return argv;
-      std::istringstream is(*argv);
-      is >> _value;
-      return argv+1;
+      if constexpr(NumFields==1) {
+          if (!*argv)
+            return argv;
+          std::istringstream is(*argv);
+          is >> _value;
+          return argv+1;
+        } else {
+        for (int i=0; i<NumFields; ++i) {
+          if (!*(argv+i))
+            return argv+i;
+          std::istringstream is(*(argv+i));
+          is >> _value[i];
+          if (! is)
+            return argv+i;
+        }
+        return argv+NumFields;
+      }
     }
 
     std::string stringValue() const override {
       std::ostringstream os;
-      os << _value;
+      if constexpr(NumFields==1) {
+          os << _value;
+        }
+      else {
+        for (int i=0; i<NumFields; ++i) {
+          os << _value[i] << " ";
+        }
+      }
       return os.str();
     }
     
@@ -90,4 +116,13 @@ namespace srrg2_core {
   using ArgumentFloat=Argument_<float> ;
   using ArgumentDouble=Argument_<double> ;
   using ArgumentString=Argument_<std::string>;
+
+  template <int NumFields_>
+  using ArgumentFloatVector_=Argument_<float[NumFields_], NumFields_>;
+
+  template <int NumFields_>
+  using ArgumentDoubleVector_=Argument_<double[NumFields_], NumFields_>;
+
+  template <int NumFields_>
+  using ArgumentIntVector_=Argument_<int[NumFields_], NumFields_>;
 }

@@ -14,7 +14,6 @@
 
 #include "srrg_messages/message_handlers/message_file_source.h"
 #include "srrg_messages/message_handlers/message_filter_base.h"
-#include "srrg_messages/message_handlers/message_platform_sink.h"
 #include "srrg_messages/message_handlers/message_sink_base.h"
 #include "srrg_messages/message_handlers/message_source_platform.h"
 
@@ -527,8 +526,11 @@ namespace srrg2_core {
       if (args.size() < 1) {
         return false;
       }
+      ConfigurablePtr module=nullptr;
       for (const std::string& s : args) {
-        ConfigurablePtr module = shell->getConfigurable(s);
+        if (! module) {
+          module = shell->getConfigurable(s);
+        }
         if (!module) {
           std::cerr << "object [" << FG_CYAN(s) << "] unknown, cannot exec" << std::endl;
           return false;
@@ -538,6 +540,13 @@ namespace srrg2_core {
         for (size_t i = 1; i < args.size(); ++i) {
           tokens.push_back(args[i]);
         }
+        if (! tokens.size()) {
+          response = "no command specified for object" + args[0];
+          return false;
+        }
+        std::cerr <<  "exec| class: " << module->className()
+                  << " instance: " << args[0]
+                  << " command:" << tokens[0] << std::endl;
         bool ok = module->handleCommand(shell, response, tokens);
         std::cerr << response << std::endl;
         if (ok) {
@@ -679,31 +688,6 @@ namespace srrg2_core {
       std::cerr << "CommandRunRunner::~CommandRunRunner|job done" << std::endl;
     }
 
-    void retrievePlatformSource() {
-      MessagePlatformSinkPtr platform_sink = std::dynamic_pointer_cast<MessagePlatformSink>(sink);
-      MessageSourcePlatformPtr platform_source;
-
-      std::shared_ptr<MessageFilterBase> s = std::dynamic_pointer_cast<MessageFilterBase>(source);
-      while (s) {
-        platform_source = std::dynamic_pointer_cast<MessageSourcePlatform>(s);
-        if (platform_source) {
-          PlatformPtr platform = platform_source->platform(platform_sink->param_tf_topic.value());
-          if (platform && platform->isWellFormed()) {
-            platform_sink->setPlatform(platform);
-            std::cerr << "CommandRunRunner::retrievePlatformSource|"
-                      << FG_GREEN("platform assigned:\n"
-                                  << platform_sink->platform())
-                      << std::endl;
-            instance->requires_platform = false;
-          }
-          return;
-        }
-        std::shared_ptr<MessageFilterBase> next =
-          std::dynamic_pointer_cast<MessageFilterBase>(s->param_source.value());
-        s = next;
-      }
-    }
-
     static void startRunner() {
       getcontext(&shell_context);
       runner_context                  = shell_context;
@@ -729,14 +713,7 @@ namespace srrg2_core {
 
     static void runnerThread() {
       BaseSensorMessagePtr msg;
-      instance->requires_platform =
-        (std::dynamic_pointer_cast<MessagePlatformSink>(instance->sink) != 0);
-
       while ((msg = instance->source->getMessage())) {
-        if (instance->requires_platform) {
-          instance->retrievePlatformSource();
-        }
-
         bool step_done = instance->sink->putMessage(msg);
         // DrawableBasePtr
         // drawable=std::dynamic_pointer_cast<DrawableBase>(CommandRunRunner::instance->sink);
@@ -749,6 +726,21 @@ namespace srrg2_core {
           resumeShell();
         }
       }
+
+      while (!instance->sink->isFlushed()) {
+        bool step_done = instance->sink->flush();
+        // DrawableBasePtr
+        // drawable=std::dynamic_pointer_cast<DrawableBase>(CommandRunRunner::instance->sink);
+        if (step_done) {
+          ConfigurableShell::instance->stepCallback(instance->sink);
+        }
+
+        // drawable->draw(CommandRunRunner::instance->canvas);
+        if (step_mode) {
+          resumeShell();
+        }
+      }
+
       CommandRunRunner* temp_instance = instance;
       instance                        = 0;
       delete temp_instance;
@@ -772,7 +764,6 @@ namespace srrg2_core {
     MessageSourceBasePtr source;
     MessageSinkBasePtr sink;
     MessageSourceBase* root;
-    bool requires_platform = false;
     static CommandRunRunner* instance; // instance to this object
 
     static char runner_context_stack[STACK_SIZE];
@@ -792,6 +783,21 @@ namespace srrg2_core {
       shell_,
       "run",
       "<source> <sink> [--pause], runs a pipeline by pushing all messages from source to sink") {
+  }
+
+  void ConfigurableShell::CommandRun::completions(StringVector& completions,
+                                                  const StringVector& args) {
+    completions.clear();
+    if (args.size() > 2) {
+      return;
+    }
+
+    if (args.size() == 1) {
+      shell->confPtrCompletion(completions, args[0]);
+    }
+    if (args.size() == 2) {
+      shell->confPtrCompletion(completions, args[1]);
+    }
   }
 
   bool ConfigurableShell::CommandRun::execute(const std::vector<std::string>& args) {
@@ -1204,7 +1210,8 @@ namespace srrg2_core {
     addCommand(new CommandForeground(this));
   }
 
-  ConfigurableShell::ConfigurableShell(ConfigurableManager& manager_) : _manager(manager_) {
+  ConfigurableShell::ConfigurableShell(ConfigurableManager& manager_,
+                                       bool handle_sigint_) : _manager(manager_) {
     _manager.initFactory();
     std::vector<std::string> types;
     for (auto s : types) {
@@ -1217,10 +1224,15 @@ namespace srrg2_core {
     sigemptyset(&new_stop_action.sa_mask);
     new_stop_action.sa_flags   = SA_RESTART;
     new_stop_action.sa_handler = CommandRunRunner::runnerStop;
-    int sigstop_result         = sigaction(SIGINT, &new_stop_action, &old_stop_action);
-    std::cerr << "ConfigurableShell::ConfigurableShell|installed signal handler [" << sigstop_result
-              << "]" << std::endl;
-
+    if (handle_sigint_) {
+      int sigstop_result         = sigaction(SIGINT, &new_stop_action, &old_stop_action);
+      std::cerr << "ConfigurableShell::ConfigurableShell|installed signal handler [" << sigstop_result
+                << "]" << std::endl;
+    } else {
+      int sigstop_result         = sigaction(SIGINT, nullptr, &old_stop_action);
+      std::cerr << "ConfigurableShell::ConfigurableShell|installed signal handler [" << sigstop_result
+                << "]" << std::endl;
+    }
     this->addCommands();
   }
 

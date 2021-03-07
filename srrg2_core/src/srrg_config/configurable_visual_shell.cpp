@@ -171,8 +171,9 @@ namespace srrg2_core {
     }
   };
 
-  ConfigurableVisualShell::ConfigurableVisualShell(ConfigurableManager& manager_)
-    : ConfigurableShell(manager_) {
+  ConfigurableVisualShell::ConfigurableVisualShell(ConfigurableManager& manager_,
+                                                   bool handle_sigint_)
+    : ConfigurableShell(manager_, handle_sigint_) {
     this->addCommands();
   }
 
@@ -181,7 +182,8 @@ namespace srrg2_core {
       return;
     }
     for (const auto& dc_elem : canvas_config_map) {
-      if (DrawableBasePtr drawable = std::dynamic_pointer_cast<DrawableBase>(dc_elem.second)) {
+      DrawableBasePtr drawable = std::dynamic_pointer_cast<DrawableBase>(dc_elem.second);
+      if (drawable){
         drawable->draw(dc_elem.first);
       }
     }

@@ -22,8 +22,8 @@
 #define ASSERT_EQ_EIGEN(VALUE_, VALUE_REFERENCE_)                        \
   ASSERT_EQ(VALUE_.rows(), VALUE_REFERENCE_.rows());                     \
   ASSERT_EQ(VALUE_.cols(), VALUE_REFERENCE_.cols());                     \
-  for (uchar r = 0; r < VALUE_.rows(); ++r) {                            \
-    for (uchar c = 0; c < VALUE_.cols(); ++c) {                          \
+  for (decltype(VALUE_.rows()) r = 0; r < VALUE_.rows(); ++r) {          \
+    for (decltype(VALUE_.cols()) c = 0; c < VALUE_.cols(); ++c) {        \
       ASSERT_EQ(VALUE_.matrix()(r, c), VALUE_REFERENCE_.matrix()(r, c)); \
     }                                                                    \
   }
@@ -37,8 +37,8 @@
 #define ASSERT_NEAR_EIGEN(VALUE_, VALUE_REFERENCE_, TOLERANCE_)                        \
   ASSERT_EQ(VALUE_.rows(), VALUE_REFERENCE_.rows());                                   \
   ASSERT_EQ(VALUE_.cols(), VALUE_REFERENCE_.cols());                                   \
-  for (uchar r = 0; r < VALUE_.rows(); ++r) {                                          \
-    for (uchar c = 0; c < VALUE_.cols(); ++c) {                                        \
+  for (decltype(VALUE_.rows()) r = 0; r < VALUE_.rows(); ++r) {                        \
+    for (decltype(VALUE_.cols()) c = 0; c < VALUE_.cols(); ++c) {                      \
       ASSERT_NEAR(VALUE_.matrix()(r, c), VALUE_REFERENCE_.matrix()(r, c), TOLERANCE_); \
     }                                                                                  \
   }

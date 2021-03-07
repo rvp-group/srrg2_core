@@ -3,18 +3,20 @@
 #include "srrg_config/property_configurable.h"
 namespace srrg2_core {
 
-  class MessageFilterBase: public MessageSourceBase {
+  class MessageFilterBase : public MessageSourceBase {
   public:
+    PARAM(PropertyConfigurable_<MessageSourceBase>,
+          source,
+          "the source from where this filter reads",
+          nullptr,
+          nullptr);
 
-    PARAM(PropertyConfigurable_<MessageSourceBase>, source, "the source from where this filter reads", 0, 0);
-
-  public:
-  virtual ~MessageFilterBase();
-    MessageSourceBase* getRootSource() override ;
+    virtual ~MessageFilterBase() = default;
+    MessageSourceBase* getRootSource() override;
     BaseSensorMessagePtr getMessage() = 0;
-  protected:
+    void reset() override;
   };
 
-  using MessageFilterBasePtr=std::shared_ptr<MessageFilterBase>;
+  using MessageFilterBasePtr = std::shared_ptr<MessageFilterBase>;
 
-}
+} // namespace srrg2_core

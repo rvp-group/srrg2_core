@@ -89,11 +89,18 @@ namespace srrg2_core {
 
     //! helpers
   protected:
+    Link* findCommonRoot(Link* target, Link* reference) const;
+    
     //! @brief recursively traverses the tree to the root (potentially interpolating between
     //! changing joints)
     bool
     _getTransformInRoot(Isometry3f& transform_, Link* current_, const double& time_seconds_) const;
 
+    bool _getTransformInAncestor(Isometry3f& transform_,
+                                           Link* current_,
+                                           Link* ancestor_,
+                                           const double& time_seconds_) const;
+    
     //! @brief print warning/errors reguards the interpolation status
     void _printInterpolationStatus(const std::string& target_,
                                    const std::string& reference_,

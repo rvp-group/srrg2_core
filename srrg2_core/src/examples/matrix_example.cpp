@@ -70,10 +70,12 @@ int main(int argc, char** argv) {
   // Copy operator
   MyMatrix other_grid = grid;
 
-  for(size_t row =0; row < rows; ++row){
-    for(size_t col=0; col < cols; ++col){
-      size_t vector_index = grid.indexAt(row,col);
-      EXAMPLE_LOG << "Matrix::at method : " << grid.at(row,col).count << " | Matrix square bracket operator : " << grid[vector_index].count << std::endl;
+  for (decltype(rows) row = 0; row < rows; ++row) {
+    for (decltype(cols) col = 0; col < cols; ++col) {
+      size_t vector_index = grid.indexAt(row, col);
+      EXAMPLE_LOG << "Matrix::at method : " << grid.at(row, col).count
+                  << " | Matrix square bracket operator : " << grid[vector_index].count
+                  << std::endl;
     }
   }
 }

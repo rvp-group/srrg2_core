@@ -6,19 +6,75 @@
 #include <string>
 #include <sys/stat.h>
 #include <vector>
+#include <cstring>
+#include <sys/types.h>
+#include <unistd.h>
+#include <iostream>
 
 namespace srrg2_core {
 
   int srrg_argc         = 0;
   char** srrg_argv      = 0;
+  char** srrg_argv_with_pid      = 0;
   std::string srrg_opts = "";
   void srrgInit(int argc, char** argv, const char* opts) {
     srrg_argc = argc;
     srrg_argv = argv;
+    srrg_argv_with_pid=new char*[argc];
+    for (int i=0; i<argc; ++i) {
+      if (!i) {
+        char buf[1024];
+        sprintf(buf, "%s_%d", argv[0], getpid());
+        srrg_argv_with_pid[0]=strdup(buf);
+        std::cerr << "argv with pid: " << srrg_argv_with_pid[0] << std::endl;
+      } else {
+        srrg_argv_with_pid[i]=srrg_argv[i];
+      }
+        
+      
+    }
     if (opts) {
       srrg_opts = opts;
     }
     int ret __attribute__((unused)) = putenv((char*) "LC_ALL='en_US.UTF-8'");
+  }
+
+  std::string crawlForFile(const std::string plain_filename,
+                           const std::string& initial_dir) {
+    static constexpr int path_size=10240;
+    char saved_path[path_size];
+    char current_path[path_size];
+    if (!getcwd(saved_path, path_size)) {
+      std::cerr << "crawlForFile| error in retrieving current path for restoring, consider increasing the buffer size " << std::endl;
+    }
+    std::string returned_path;
+    
+    std::string current_dir=initial_dir;
+    if (chdir(initial_dir.c_str())) {
+      std::cerr << "crawlForFile| error, dir [" << current_dir << "] does not exist" << std::endl;
+      if (chdir(saved_path)) {
+        std::cerr << "crawlForFile| error in restoring initial path, dir [" << saved_path << "]" << std::endl;
+      }
+      current_dir.clear();
+      return current_dir;
+    }
+
+    do {
+      if (!getcwd(current_path, path_size)) {
+        std::cerr << "crawlForFile|fs error, cannot determine current scan dir [" << current_path << "]" << std::endl;
+      }
+      std::cerr << "crawlForFile| scanning dir [" << current_path << "]" << std::endl;
+      std::ifstream is(plain_filename.c_str());
+      if (is.good()){
+        returned_path=std::string(current_path) + "/" + plain_filename;
+        std::cerr << "crawlForFile| found path  [" << returned_path << "]" << std::endl;
+        break;
+      }
+    } while ( chdir("..")==0 && strcmp(current_path, "/"));
+    if (chdir(saved_path)) {
+      std::cerr << "crawlForFile| error in restoring initial path, dir [" << saved_path << "]" << std::endl;
+    }
+    return returned_path;
   }
 
   // ds timing

@@ -9,3 +9,10 @@ target_link_libraries(srrg_to_rosbag_converter_app
   srrg2_messages_ros_library
   ${catkin_LIBRARIES}
   )
+
+add_executable(extract_gt_from_ros extract_gt_from_ros.cpp)
+target_link_libraries(extract_gt_from_ros
+  srrg2_messages_ros_library
+  ${catkin_LIBRARIES})
+
+  

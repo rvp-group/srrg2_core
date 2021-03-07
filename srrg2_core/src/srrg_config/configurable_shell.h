@@ -6,7 +6,8 @@ namespace srrg2_core {
 
   class ConfigurableShell {
   public:
-    ConfigurableShell(ConfigurableManager& manager_);
+    ConfigurableShell(ConfigurableManager& manager_,
+                      bool handle_sigint_=true);
     virtual ~ConfigurableShell();
     struct CommandBase {
       CommandBase(ConfigurableShell* shell_,
@@ -17,7 +18,9 @@ namespace srrg2_core {
         help_message(help_message_) {
       }
 
-      ConfigurableShell* shell;
+      virtual ~CommandBase() = default;
+
+      ConfigurableShell* shell = nullptr;
       std::string tag;
       std::string help_message;
       virtual bool execute(const std::vector<std::string>& args) = 0;
@@ -41,9 +44,9 @@ namespace srrg2_core {
 
     // all pointers/named objects that match prefix
     void confFileCompletion(StringVector& completions,
-                             const std::string& prefix,
-                             bool is_dir=true,
-                             bool is_file=true);
+                            const std::string& prefix,
+                            bool is_dir  = true,
+                            bool is_file = true);
 
     // all fields in c that match prefix
     void
@@ -76,8 +79,9 @@ namespace srrg2_core {
 
     struct CommandRun : public ConfigurableShell::CommandBase {
       CommandRun(ConfigurableShell* shell_);
-      virtual ~CommandRun() {
-      }
+      virtual ~CommandRun() = default;
+
+      void completions(StringVector& completions, const StringVector& args) override;
 
       bool execute(const std::vector<std::string>& args) override;
 

@@ -12,9 +12,14 @@ namespace srrg2_core {
 
   extern int srrg_argc;
   extern char** srrg_argv;
+  extern char** srrg_argv_with_pid;
   extern std::string srrg_opts;
   void srrgInit(int argc, char** argv, const char* opts = 0);
 
+  //crawls for a file until the root of the filesystem returns the
+  // path to the file if found
+  std::string crawlForFile(const std::string plain_filename, const std::string& current_dir=".");
+  
   //! @brief printing utility
   //! prints a null terminated array of char*.
   //! each item of the array prints on a separate line

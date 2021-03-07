@@ -32,7 +32,7 @@ namespace srrg2_core {
                            const std::vector<std::string>& tokens) = 0;
 
     protected:
-      Configurable* _configurable;
+      Configurable* _configurable = nullptr;
       std::string _tag;
       std::string _help_message;
     };
@@ -46,6 +46,10 @@ namespace srrg2_core {
                                std::string& response,
                                const std::vector<std::string>& tokens);
 
+    virtual void reset();
+    // shell interface for commands: requires static wrappers
+    bool cmdReset(std::string& response);
+    bool cmdHelp(std::string& response);
   protected:
     using CommandBasePtr = std::unique_ptr<CommandBase>;
     using CommandMap     = std::map<std::string, CommandBasePtr>;

@@ -98,15 +98,15 @@ namespace srrg2_core {
   bool Matrix_<CellType_, AllocatorType_, CellTraits_>::getSubPixel(
     CellType_& interpolated_value_,
     const Vector2f& interpolation_point_) const {
+    using namespace std;
     if (!inside(interpolation_point_.x(), interpolation_point_.y())) {
       return false;
     }
-    int x0 = interpolation_point_.x(); // cols
-    int y0 = interpolation_point_.y(); // rows
-
+    int x0 = interpolation_point_.x(); // rows
+    int y0 = interpolation_point_.y(); // cols
     int x1 = x0 + 1;
     int y1 = y0 + 1;
-    if (!inside(y1, x1)) {
+    if (!inside(x1, y1)) {
       return false;
     }
 
@@ -114,12 +114,11 @@ namespace srrg2_core {
     const float dy  = interpolation_point_.y() - (float) y0;
     const float dx1 = 1.f - dx;
     const float dy1 = 1.f - dy;
-
     Traits::setZero(interpolated_value_);
-    Traits::sumAndScale(interpolated_value_, (*this)(y0, x0), dy1 * dx1);
-    Traits::sumAndScale(interpolated_value_, (*this)(y0, x1), dy1 * dx);
-    Traits::sumAndScale(interpolated_value_, (*this)(y1, x0), dy * dx1);
-    Traits::sumAndScale(interpolated_value_, (*this)(y1, x1), dy * dx);
+    Traits::sumAndScale(interpolated_value_, (*this)(x0, y0), dy1 * dx1);
+    Traits::sumAndScale(interpolated_value_, (*this)(x0, y1), dy1 * dx);
+    Traits::sumAndScale(interpolated_value_, (*this)(x1, y0), dy * dx1);
+    Traits::sumAndScale(interpolated_value_, (*this)(x1, y1), dy * dx);
     Traits::postInterpolate(interpolated_value_);
     return true;
   }

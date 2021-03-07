@@ -3,23 +3,21 @@
 #include "property_vector.h"
 namespace srrg2_core {
 
-  class DynamicLoaderConfig: public PropertyContainerSerializable {
+  class DynamicLoaderConfig : public PropertyContainerSerializable {
   public:
-    PropertyVector_<std::string> so_paths = PropertyVector_<std::string> ("so_paths",
-                                                                          "path where to look for the so",
-                                                                          this);
-    
-    PropertyVector_<std::string> so_names = PropertyVector_<std::string>("so_names",
-                                                                         "names of the .so to load in this manager",
-                                                                         this);
+    PropertyVector_<std::string> so_paths =
+      PropertyVector_<std::string>("so_paths", "path where to look for the so", this);
+
+    PropertyVector_<std::string> so_names =
+      PropertyVector_<std::string>("so_names", "names of the .so to load in this manager", this);
     void deserializeComplete() override;
   };
-  
+
   class PropertyContainerManager : public PropertyContainerSerializable {
   public:
-
     //! loads a a set of *.so files whose names are passed as argument
-    static void initFactory(const std::vector<std::string>& library_paths=std::vector<std::string>());
+    static void
+    initFactory(const std::vector<std::string>& library_paths = std::vector<std::string>());
     static void initFactory(const std::string& loader_config_filename);
     static void makeFactoryStub(const std::string& loader_config_filename);
     static std::vector<std::string> listTypes();
@@ -42,6 +40,9 @@ namespace srrg2_core {
       if (add(c)) {
         return c;
       }
+      std::cerr << "PropertyContainerManager::create|WARNING, cannot create object [ "
+                << c->className() << " ] with name [ " << name
+                << " ] (maybe name is already in use?)\n";
       return 0;
     }
 

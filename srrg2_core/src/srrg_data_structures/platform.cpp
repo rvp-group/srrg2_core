@@ -56,6 +56,7 @@ namespace srrg2_core {
     return result;
   }
 
+    
   bool Platform::getTransform(Isometry3f& transform_,
                               const std::string& target_,
                               const std::string& reference_,
@@ -89,28 +90,54 @@ namespace srrg2_core {
 
     // ds compute both transforms bottom up (TODO precompute paths in setup?)
     Link* target_link = target_link_it->second;
-    Isometry3f target_in_root;
-    target_in_root.setIdentity();
-    bool target_result = _getTransformInRoot(target_in_root, target_link, time_seconds_);
+    Link* reference_link = reference_link_it->second;
+
+    Link* common_ancestor = findCommonRoot(target_link, reference_link);
+    if (! common_ancestor) {
+      std::cerr << FG_YELLOW("Platform::getTransform|WARNING could not find a common ancestor between\n" << target_identifier << " and " << reference_identifier);
+      return false;
+    }
+                                           
+    Isometry3f target_in_ancestor;
+    target_in_ancestor.setIdentity();
+    bool target_result = _getTransformInAncestor(target_in_ancestor, target_link, common_ancestor, time_seconds_);
     if (!target_result) {
       _printInterpolationStatus(
         target_identifier, reference_identifier, target_link->_sampled_status);
       return target_result;
     }
 
-    Link* reference_link = reference_link_it->second;
-    Isometry3f reference_in_root;
-    reference_in_root.setIdentity();
-    bool reference_result = _getTransformInRoot(reference_in_root, reference_link, time_seconds_);
+    Isometry3f reference_in_ancestor;
+    reference_in_ancestor.setIdentity();
+    bool reference_result = _getTransformInAncestor(reference_in_ancestor, reference_link, common_ancestor, time_seconds_);
     if (!reference_result) {
+      std::cerr << "reference" << std::endl;
       _printInterpolationStatus(
         target_identifier, reference_identifier, reference_link->_sampled_status);
       return reference_result;
     }
 
-    transform_ = reference_in_root.inverse() * target_in_root;
+    transform_ = reference_in_ancestor.inverse() * target_in_ancestor;
     return true;
   }
+
+    Link* Platform::findCommonRoot(Link* target, Link* reference) const {
+      while(1) {
+        if (! target || ! reference)
+          return 0;
+        if (target==reference) {
+          return target;
+        } 
+        if (target->level()>reference->level()) {
+          target=target->parent();
+        } else if(reference->level()>target->level()) {
+          reference=reference->parent();
+        } else {
+          reference=reference->parent();
+          target=target->parent();
+        } 
+      }
+    }
 
   bool Platform::add(PropertyContainerBasePtr message_) {
     if (!message_) {
@@ -296,7 +323,7 @@ namespace srrg2_core {
   void Platform::_printInterpolationStatus(const std::string& target_,
                                            const std::string& reference_,
                                            const Link::InterpolationStatus& sampled_status) const {
-    std::cerr << FG_BLUE("Platform::getTransform|" << target_ << " in " << reference_);
+    std::cerr << FG_BLUE("Platform::getTransform|" << target_ << " in " << reference_ << "[" << sampled_status << "]");
     switch (sampled_status) {
       case Link::InterpolationStatus::ExtrapolationTop:
         std::cerr << FG_YELLOW(" interpolation require extrapolation in the future") << std::endl;
@@ -348,33 +375,31 @@ namespace srrg2_core {
     return true;
   }
 
+  bool Platform::_getTransformInAncestor(Isometry3f& transform_,
+                                         Link* current_,
+                                         Link* ancestor_,
+                                         const double& time_seconds_) const {
+    transform_.setIdentity();
+    while (current_!=ancestor_) {
+      Link::InterpolationStatus sampled_status = current_->sample(time_seconds_);
+      if (sampled_status != Link::InterpolationStatus::Ok) {
+        std::cerr << "interpolation error status for link: "
+                  << current_->identifier()
+                  << " " << sampled_status << std::endl;
+        return false;
+      }
+      transform_= current_->poseInParent() * transform_;
+      if (!current_->parent())
+        return false;
+      current_=current_->parent();
+    }
+    return true;
+  }
+
   bool Platform::_getTransformInRoot(Isometry3f& transform_,
                                      Link* current_,
                                      const double& time_seconds_) const {
-    // ds check for termination (we arrived at the root joint)
-    if (current_ == _root) {
-      return true;
-    } else {
-      // ds check if parent is not set (should be!)
-      if (!current_->parent()) {
-        return false;
-      }
-
-      Link::InterpolationStatus sampled_status = current_->sample(time_seconds_);
-      if (sampled_status != Link::InterpolationStatus::Ok) {
-        // tg check for interpolation errors
-        return false;
-      }
-
-      // ds compute relative transform between the next joints - moving upwards
-      // in the tree (towards the root)
-      if (_getTransformInRoot(transform_, current_->parent(), time_seconds_)) {
-        transform_ = transform_ * current_->poseInParent();
-        return true;
-      } else {
-        return false;
-      }
-    }
+    return _getTransformInAncestor(transform_, current_, _root, time_seconds_);
   }
 
   void Platform::_setRoot() {

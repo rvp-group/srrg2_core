@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include "srrg_boss/eigen_boss_plugin.h"
 #include "srrg_boss/serializer.h"
 #include "srrg_boss/deserializer.h"
 #include "srrg_property/property_container.h"

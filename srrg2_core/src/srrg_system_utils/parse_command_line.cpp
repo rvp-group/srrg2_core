@@ -2,11 +2,13 @@
 #include <iostream>
 #include <cstring>
 namespace srrg2_core {
+
+  
   ArgumentFlag::ArgumentFlag(ParseCommandLine* cmd_line,
-                                               const std::string& option_,
-                                               const std::string& long_option_,
-                                               const std::string& explanation_,
-                                               int num_fields_):
+                             const std::string& option_,
+                             const std::string& long_option_,
+                             const std::string& explanation_,
+                             int num_fields_):
     _option(std::string("-")+option_),
     _long_option(std::string("--")+long_option_),
     _explanation(explanation_),
@@ -29,7 +31,7 @@ namespace srrg2_core {
     _argv(argv_),
     _what_does(what_does_),
     _help_arg(this, "h", "help", "displays this help message")
-    {}
+  {}
   
   void ParseCommandLine::addArgument(ArgumentFlag* arg) {
     auto it=_arg_map.find(arg->option());
@@ -92,7 +94,7 @@ namespace srrg2_core {
         auto it=_long_arg_map.find(*last_parsed_argv);
         if (it!=_long_arg_map.end()) {
           arg=it->second;
-        last_parsed_argv++;
+          last_parsed_argv++;
         } else {
           std::cerr << "unknown arg: [" << *last_parsed_argv << "]" << std::endl;
           exit(-1);
@@ -103,7 +105,7 @@ namespace srrg2_core {
         auto it=_arg_map.find(*last_parsed_argv);
         if (it!=_arg_map.end()) {
           arg=it->second;
-        last_parsed_argv++;
+          last_parsed_argv++;
         } else {
           std::cerr << "unknown arg:  [" << *last_parsed_argv << "]" << std::endl;
           exit(-1);
@@ -128,5 +130,4 @@ namespace srrg2_core {
       ++larg;
     }
   }
-    
 }

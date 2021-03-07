@@ -1,4 +1,5 @@
 #pragma once
+
 namespace srrg2_core {
 
   // type getter, returns the type of the ith type in a tuple
@@ -176,5 +177,6 @@ namespace srrg2_core {
 
     FieldItemType _field;
   };
+
 
 } // namespace srrg2_core

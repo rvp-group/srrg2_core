@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "srrg_boss/eigen_boss_plugin.h"
+#include "srrg_boss/object_data.h"
 #include "srrg_boss/serializer.h"
 #include "srrg_boss/deserializer.h"
 #include "srrg_system_utils/system_utils.h"
@@ -34,7 +34,7 @@ void AnObject::serialize(ObjectData& data, IdContext& context) {
   // serialize string ...
   data.setString("name", name);
   // An Eigen Matrix ...
-  point.toBOSS(data,"point");
+  data.setEigen<Eigen::Vector3f>("point", point);
   // Basic types ...
   data.setInt("count", count);
   // An std::vector
@@ -56,7 +56,7 @@ void AnObject::deserialize(ObjectData& data, IdContext& context){
   // an integer...
   count= data.getInt("count");
   // An Eigen Matrix...
-  point.fromBOSS(data, "point");
+  point = data.getEigen<Eigen::Vector3f>("point");
   // An std::vector ...
   ArrayData* adata=dynamic_cast<ArrayData*>(data.getField("values"));
   if(! adata)

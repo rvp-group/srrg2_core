@@ -7,7 +7,8 @@
 namespace srrg2_core {
   // simple shell with visualization
   struct ConfigurableVisualShell : public ConfigurableShell {
-    ConfigurableVisualShell(ConfigurableManager& manager_);
+    ConfigurableVisualShell(ConfigurableManager& manager_,
+                            bool handle_sigint_=true);
     virtual ~ConfigurableVisualShell() {
     }
     // ia pointer to the canvas (to draw things)

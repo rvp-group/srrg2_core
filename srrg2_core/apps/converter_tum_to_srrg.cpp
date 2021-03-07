@@ -56,6 +56,7 @@ void loadIMUInformation(const std::string& file_imu_data_,
                         StdVectorEigenVector3d& linear_accelerations_,
                         std::vector<double>& timestamps_seconds_);
 
+template <typename ImageType_>
 void serializeCameraImageAndInfo(MessageFileSink& sink_,
                                  size_t& index_,
                                  const double& timestamp_,
@@ -64,7 +65,8 @@ void serializeCameraImageAndInfo(MessageFileSink& sink_,
                                  const std::string& distortion_model_name_,
                                  const Vector5d& distortion_coefficients_,
                                  const Matrix3f& camera_matrix_,
-                                 const cv::Mat* undistort_rectify_maps_);
+                                 const cv::Mat* undistort_rectify_maps_,
+                                 const float& depth_factor_);
 
 void initializeUndistortion(const Matrix3f& camera_calibration_matrix_,
                             const Vector5d& distortion_coefficients_,
@@ -111,13 +113,22 @@ int main(int argc_, char** argv_) {
   std::string depth_file(dataset_folder + depth_filename);
 
   if (!isAccessible(dataset_folder)) {
-    throw std::runtime_error(exe_name + "|ERROR cannot dataset_folder file [ " + dataset_folder +
-                             " ]");
+    throw std::runtime_error(exe_name + "|ERROR cannot dataset_folder [ " + dataset_folder + " ]");
   }
 
   if (!isAccessible(gt_file)) {
     throw std::runtime_error(exe_name + "|ERROR cannot gt_file file [ " + gt_file + " ]");
   }
+  void serializeCameraDepthImageAndInfo(MessageFileSink & sink_,
+                                        size_t & index_,
+                                        const double& timestamp_,
+                                        const std::string& label_,
+                                        const std::string& file_path_image_,
+                                        const std::string& distortion_model_name_,
+                                        const Vector5d& distortion_coefficients_,
+                                        const Matrix3f& camera_matrix_,
+                                        const cv::Mat* undistort_rectify_maps_,
+                                        const float& depth_factor);
 
   if (!isAccessible(imu_file)) {
     throw std::runtime_error(exe_name + "|ERROR cannot imu_file file [ " + imu_file + " ]");
@@ -270,15 +281,16 @@ int main(int argc_, char** argv_) {
 
     // ds if we have RGB data available
     if (timestamps_rgb.size() && timestamps_rgb.front() == first_timestamp) {
-      serializeCameraImageAndInfo(sink,
-                                  index_rgb,
-                                  first_timestamp,
-                                  "rgb",
-                                  dataset_folder + image_filenames_rgb.front(),
-                                  distortion_model_name,
-                                  distortion_coefficients,
-                                  camera_calibration_matrix,
-                                  undistort_rectify_maps);
+      serializeCameraImageAndInfo<ImageUInt8>(sink,
+                                              index_rgb,
+                                              first_timestamp,
+                                              "rgb",
+                                              dataset_folder + image_filenames_rgb.front(),
+                                              distortion_model_name,
+                                              distortion_coefficients,
+                                              camera_calibration_matrix,
+                                              undistort_rectify_maps,
+                                              1.);
       image_filenames_rgb.erase(image_filenames_rgb.begin());
       timestamps_rgb.erase(timestamps_rgb.begin());
       ++index_rgb;
@@ -286,15 +298,16 @@ int main(int argc_, char** argv_) {
     }
 
     if (timestamps_depth.size() && timestamps_depth.front() == first_timestamp) {
-      serializeCameraImageAndInfo(sink,
-                                  index_depth,
-                                  first_timestamp,
-                                  "depth",
-                                  dataset_folder + image_filenames_depth.front(),
-                                  distortion_model_name,
-                                  distortion_coefficients,
-                                  camera_calibration_matrix,
-                                  undistort_rectify_maps);
+      serializeCameraImageAndInfo<ImageUInt16>(sink,
+                                               index_depth,
+                                               first_timestamp,
+                                               "depth",
+                                               dataset_folder + image_filenames_depth.front(),
+                                               distortion_model_name,
+                                               distortion_coefficients,
+                                               camera_calibration_matrix,
+                                               undistort_rectify_maps,
+                                               factor_to_srrg_depth);
       image_filenames_depth.erase(image_filenames_depth.begin());
       timestamps_depth.erase(timestamps_depth.begin());
       ++index_depth;
@@ -437,6 +450,7 @@ void loadIMUInformation(const std::string& file_imu_data_,
   stream.close();
 }
 
+template <typename ImageType_>
 void serializeCameraImageAndInfo(MessageFileSink& sink_,
                                  size_t& index_,
                                  const double& timestamp_,
@@ -445,19 +459,20 @@ void serializeCameraImageAndInfo(MessageFileSink& sink_,
                                  const std::string& distortion_model_name_,
                                  const Vector5d& distortion_coefficients_,
                                  const Matrix3f& camera_matrix_,
-                                 const cv::Mat* undistort_rectify_maps_) {
+                                 const cv::Mat* undistort_rectify_maps_,
+                                 const float& depth_factor_) {
   // ds create image message
   ImageMessagePtr image_message(
-    new ImageMessage("/" + label_ + "/image_raw", label_, index_, timestamp_));
+    new ImageMessage("/camera/" + label_ + "/image_raw", label_, index_, timestamp_));
 
   // ds load RGB image from disk and convert
-  cv::Mat image_opencv = cv::imread(file_path_image_, CV_LOAD_IMAGE_GRAYSCALE);
-
-  //  cv::remap(image_opencv,
-  //            image_opencv,
-  //            undistort_rectify_maps_[0],
-  //            undistort_rectify_maps_[1],
-  //            cv::INTER_LINEAR);
+  cv::Mat image_opencv;
+  if (depth_factor_ != 1.) {
+    image_opencv = cv::imread(file_path_image_, CV_LOAD_IMAGE_ANYDEPTH);
+    image_opencv *= depth_factor_;
+  } else {
+    image_opencv = cv::imread(file_path_image_, CV_LOAD_IMAGE_GRAYSCALE);
+  }
 
   if (image_opencv.rows <= 0 || image_opencv.cols <= 0) {
     throw std::runtime_error(
@@ -467,7 +482,7 @@ void serializeCameraImageAndInfo(MessageFileSink& sink_,
   }
 
   // ds map to srrg
-  ImageUInt8* base_image(new ImageUInt8());
+  ImageType_* base_image(new ImageType_());
   base_image->fromCv(image_opencv);
   image_message->setImage(base_image);
   image_message->image_cols.setValue(image_opencv.cols);
@@ -479,11 +494,15 @@ void serializeCameraImageAndInfo(MessageFileSink& sink_,
                           image_message->frame_id.value(),
                           image_message->seq.value(),
                           image_message->timestamp.value()));
+  if (depth_factor_ != 1.) {
+    camera_info_message->depth_scale.setValue(1e-3f);
+  }
   camera_info_message->projection_model.setValue("pinhole");
   camera_info_message->distortion_model.setValue(distortion_model_name_);
   camera_info_message->camera_matrix.setValue(camera_matrix_);
-  //  camera_info_message->distortion_coefficients.setName("don't use, already undistorted");
   camera_info_message->distortion_coefficients.setValue(distortion_coefficients_);
+  camera_info_message->cols.setValue(image_opencv.cols);
+  camera_info_message->rows.setValue(image_opencv.rows);
 
   // ds write messages related to this image
   sink_.putMessage(image_message);

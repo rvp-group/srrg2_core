@@ -28,8 +28,8 @@ TEST_F(SyntheticWorldSE2, PointProjectorPolarDepthBuffer_100) {
   // ds initialize projector
   PointProjectorPolar_<Point2fVectorCloud> projector_2d;
   projector_2d.param_range_max.setValue(maximum_projection_value[0] + 1);
-  projector_2d.param_canvas_cols.setValue(num_beams);
-  projector_2d.param_canvas_rows.setValue(1);
+  projector_2d.setCanvasCols(num_beams);
+  projector_2d.setCanvasRows(1);
   projector_2d.setCameraPose(sensor_poses[0]);
   projector_2d.initCameraMatrix();
 
@@ -60,8 +60,8 @@ TEST_F(SyntheticWorldSE2, PointProjectorPolarDepthBuffer_1000) {
   // ds initialize projector
   PointProjectorPolar_<Point2fVectorCloud> projector_2d;
   projector_2d.param_range_max.setValue(maximum_projection_value[0] + 1);
-  projector_2d.param_canvas_cols.setValue(num_beams);
-  projector_2d.param_canvas_rows.setValue(1);
+  projector_2d.setCanvasCols(num_beams);
+  projector_2d.setCanvasRows(1);
   projector_2d.setCameraPose(sensor_poses[0]);
   projector_2d.initCameraMatrix();
 
@@ -92,8 +92,8 @@ TEST_F(SyntheticWorldSE2, PointProjectorPolarDepthBuffer_10000) {
   // ds initialize projector
   PointProjectorPolar_<Point2fVectorCloud> projector_2d;
   projector_2d.param_range_max.setValue(maximum_projection_value[0] + 1);
-  projector_2d.param_canvas_cols.setValue(num_beams);
-  projector_2d.param_canvas_rows.setValue(1);
+  projector_2d.setCanvasCols(num_beams);
+  projector_2d.setCanvasRows(1);
   projector_2d.setCameraPose(sensor_poses[0]);
   projector_2d.initCameraMatrix();
 
@@ -126,8 +126,8 @@ TEST_F(SyntheticWorldSE2Descriptors, PointProjectorPolarDepthBuffer_10000) {
   // ds initialize projector
   PointProjectorPolar_<PointIntensityDescriptor2fVectorCloud> projector_2d;
   projector_2d.param_range_max.setValue(maximum_projection_value[0] + 1);
-  projector_2d.param_canvas_cols.setValue(num_beams);
-  projector_2d.param_canvas_rows.setValue(1);
+  projector_2d.setCanvasCols(num_beams);
+  projector_2d.setCanvasRows(1);
   projector_2d.setCameraPose(sensor_poses[0]);
   projector_2d.initCameraMatrix();
 
@@ -157,8 +157,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinholeDepthBuffer_100) {
   // ds initialize projector
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
   projector_3d.setCameraPose(sensor_poses[0]);
@@ -189,8 +189,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinholeDepthBuffer_1000) {
   // ds initialize projector
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
   projector_3d.setCameraPose(sensor_poses[0]);
@@ -221,8 +221,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinholeDepthBuffer_10000) {
   // ds initialize projector
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
   projector_3d.setCameraPose(sensor_poses[0]);
@@ -255,8 +255,8 @@ TEST_F(SyntheticWorldSE3Descriptors, PointProjectorPinholeDepthBuffer_10000) {
   // ds initialize projector
   PointIntensityDescriptor3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
   projector_3d.setCameraPose(sensor_poses[0]);
@@ -287,8 +287,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinhole_100) {
   // ds initialize projector
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
   projector_3d.setCameraPose(sensor_poses[0]);
@@ -321,8 +321,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinhole_1000) {
   // ds initialize projector
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
   projector_3d.setCameraPose(sensor_poses[0]);
@@ -355,8 +355,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinhole_10000) {
   // ds initialize projector
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
   projector_3d.setCameraPose(sensor_poses[0]);
@@ -389,8 +389,8 @@ TEST_F(SyntheticWorldSE3Descriptors, PointProjectorPinhole_10000) {
   // ds initialize projector
   PointIntensityDescriptor3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
   projector_3d.setCameraPose(sensor_poses[0]);
@@ -423,8 +423,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinholeIndexMatrix_100) {
   // ds initialize projector
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
 
@@ -453,8 +453,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinholeIndexMatrix_1000) {
 
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
 
@@ -483,8 +483,8 @@ TEST_F(SyntheticWorldSE3, PointProjectorPinholeIndexMatrix_10000) {
 
   Point3fProjectorPinhole projector_3d;
   projector_3d.setCameraMatrix(projection_matrix);
-  projector_3d.param_canvas_cols.setValue(canvas_size(0));
-  projector_3d.param_canvas_rows.setValue(canvas_size(1));
+  projector_3d.setCanvasCols(canvas_size(0));
+  projector_3d.setCanvasRows(canvas_size(1));
   projector_3d.param_range_min.setValue(0.1);
   projector_3d.param_range_max.setValue(std::numeric_limits<float>::max());
 

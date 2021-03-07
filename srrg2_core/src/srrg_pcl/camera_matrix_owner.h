@@ -17,8 +17,7 @@ namespace srrg2_core {
     }
 
     using CameraMatrixType = Eigen::Matrix<float, GeometryDim, GeometryDim>;
-    PARAM(PropertyInt, canvas_rows, "rows of the canvas", 1, &_config_changed);
-    PARAM(PropertyInt, canvas_cols, "cols of the canvas", 721, &_config_changed);
+
     inline void setCameraMatrix(const CameraMatrixType& camera_matrix_) {
       _camera_matrix = camera_matrix_;
     }
@@ -36,10 +35,29 @@ namespace srrg2_core {
       return _camera_in_world;
     }
 
+    inline void setCanvasRows(const size_t& canvas_rows_) {
+      _canvas_rows = canvas_rows_;
+    }
+
+    inline const size_t& canvasRows() const {
+      return _canvas_rows;
+    }
+
+    inline void setCanvasCols(const size_t& canvas_cols_) {
+      _canvas_cols = canvas_cols_;
+    }
+
+    inline const size_t& canvasCols() const {
+      return _canvas_cols;
+    }
+
   protected:
     CameraMatrixType _camera_matrix = CameraMatrixType::Identity();
     IsometryType _camera_in_world   = IsometryType::Identity();
     IsometryType _world_in_camera   = IsometryType::Identity();
+
+    size_t _canvas_rows = 0;
+    size_t _canvas_cols = 0;
 
     bool _config_changed = true;
   };

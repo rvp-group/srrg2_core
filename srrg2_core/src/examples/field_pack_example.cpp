@@ -1,5 +1,9 @@
 #include <iostream>
 #include "srrg_data_structures/field_pack.h"
+#include <vector>
+#include <string>
+#include <sstream>
+#include "srrg_data_structures/generic_class_method_caller.h"
 
 using namespace srrg2_core;
 using namespace std;
@@ -26,6 +30,13 @@ struct PrintAt_<FieldPackType_, 0> {
   }
 };
 
+
+struct SimpleRunner {
+  bool methodOne(int i , string s, float f) {
+    std::cerr << "MethodOne" << i << " " << s << " " << f << std::endl;
+    return true;
+  }
+};
   
 int main(int argc, char** argv) {
   MyFieldPack pack;
@@ -65,6 +76,18 @@ int main(int argc, char** argv) {
   PrintAt_<MyFieldPack, MyFieldPack::NumFields-1>::print_(pack);
   cerr << endl;
 
+  PrintAt_<MyFieldPack, MyFieldPack::NumFields-1>::print_(pack);
+
+  SimpleRunner runner;
+  GenericClassMethodCaller_<SimpleRunner,
+                            typeof(&SimpleRunner::methodOne),
+                            int, std::string, float> caller;
+
+  std::vector<std::string> tokens;
+  tokens.push_back("1");
+  tokens.push_back("i_am_a_string");
+  tokens.push_back("1.1");
+  caller.parsePackFromTokens<0>(tokens);
+  caller.execute<0>(runner, &SimpleRunner::methodOne);
   
-    
 }

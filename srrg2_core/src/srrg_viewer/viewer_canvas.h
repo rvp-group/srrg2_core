@@ -33,6 +33,7 @@ namespace srrg2_core {
 
     void putPoints(const Point3fVectorCloud& points_);
     void putPoints(const PointNormal3fVectorCloud& points_);
+    // ia TODO WORKAROUND WITH HIDDEN COPY
     void putPoints(const PointNormalCurvature3fVectorCloud& points_);
     void putPoints(const PointNormalColor3fVectorCloud& points_);
     void putPoints(const PointIntensityDescriptor3fVectorCloud& points_);
@@ -57,6 +58,8 @@ namespace srrg2_core {
     void putPoints(const PointIntensity3fMatrixCloud& points_);
     // ia TODO WORKAROUND WITH HIDDEN COPY
     void putPoints(const PointNormalCurvatureColor3fMatrixCloud& points_);
+    // ia TODO WORKAROUND WITH HIDDEN COPY
+    void putPoints(const PointNormalCurvature3fMatrixCloud& points_);
 
     void putPoints(const Point4fMatrixCloud& points_);
     void putPoints(const PointNormal4fMatrixCloud& points_);

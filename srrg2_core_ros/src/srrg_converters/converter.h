@@ -7,8 +7,13 @@
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+
 #include <image_transport/image_transport.h>
 #include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
@@ -38,30 +43,36 @@ namespace srrg2_core_ros {
     // ds ROS to SRRG
   public:
     // ds specialized conversion interface - going down for higher specialization
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(sensor_msgs::CameraInfoConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(sensor_msgs::ImageConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(sensor_msgs::ImuConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(sensor_msgs::LaserScanConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(nav_msgs::OdometryConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(geometry_msgs::PointStampedConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(sensor_msgs::RangeConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(tf2_msgs::TFMessageConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(geometry_msgs::TwistStampedConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(sensor_msgs::PointCloud2ConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(sensor_msgs::JointStateConstPtr message_in_);
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(sensor_msgs::NavSatFixConstPtr message_in_);
+    static srrg2_core::BaseSensorMessagePtr
+    convert(geometry_msgs::PoseArrayConstPtr message_in_);
+    static srrg2_core::BaseSensorMessagePtr
+    convert(geometry_msgs::PoseStampedConstPtr message_in_);
+    static srrg2_core::BaseSensorMessagePtr
+    convert(geometry_msgs::PoseWithCovarianceStampedConstPtr message_in_);
 
     // ds SRRG to ROS
   public:
@@ -81,7 +92,15 @@ namespace srrg2_core_ros {
     static sensor_msgs::PointCloud2Ptr convert(const srrg2_core::PointCloud2MessagePtr message_in_);
     static sensor_msgs::JointStatePtr convert(const srrg2_core::JointsMessagePtr message_in_);
     static sensor_msgs::NavSatFixPtr convert(const srrg2_core::NavsatFixMessagePtr message_in_);
+    static geometry_msgs::PoseArrayPtr convert(const srrg2_core::PoseArrayMessagePtr message_in_);
+    static geometry_msgs::PoseStampedPtr
+    convert(const srrg2_core::PoseStampedMessagePtr message_in_);
+    static geometry_msgs::PoseWithCovarianceStampedPtr
+    convert(const srrg2_core::PoseWithCovarianceStampedMessagePtr message_in_);
+    static nav_msgs::PathPtr
+    convert(const srrg2_core::PathMessagePtr message_in_);
 
+    
     // static geometry_msgs::TransformStampedPtr convert(const srrg2_core::TransformEvent*
     // message_in_); TODO used?
 
@@ -90,7 +109,7 @@ namespace srrg2_core_ros {
     // ds templated conversion for ROS bag messages (in case an inner or outer type has to be
     // specified)
     template <typename ROSMessageInstanceType_>
-    static srrg2_core::PropertyContainerSerializablePtr
+    static srrg2_core::BaseSensorMessagePtr
     convert(const rosbag::MessageInstance& message_in_) {
       return Converter::convert(message_in_.instantiate<ROSMessageInstanceType_>());
     }
@@ -158,12 +177,27 @@ namespace srrg2_core_ros {
       return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
     }
 
+    template <typename SRRGMessageType_>
+    static std::shared_ptr<SRRGMessageType_> convert(geometry_msgs::PoseArrayConstPtr message_in_) {
+      return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
+    }
+
+    template <typename SRRGMessageType_>
+    static std::shared_ptr<SRRGMessageType_> convert(geometry_msgs::PoseWithCovarianceStampedConstPtr message_in_) {
+      return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
+    }
+
+    template <typename SRRGMessageType_>
+    static std::shared_ptr<SRRGMessageType_> convert(geometry_msgs::PoseStampedConstPtr message_in_) {
+      return std::dynamic_pointer_cast<SRRGMessageType_>(convert(message_in_));
+    }
+
     // ds SRRG to ROS wrappers
   public:
     // ds templated conversion from SRRG base type
     template <typename ROSMessageType_>
     static boost::shared_ptr<ROSMessageType_>
-    convert(const srrg2_core::PropertyContainerSerializablePtr message_in_) {
+    convert(const srrg2_core::BaseSensorMessagePtr message_in_) {
       boost::shared_ptr<ROSMessageType_> message_out = boost::make_shared<ROSMessageType_>();
       return message_out;
     }

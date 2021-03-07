@@ -1,12 +1,16 @@
 #include "message_filter_base.h"
 namespace srrg2_core {
 
-
-  MessageFilterBase::~MessageFilterBase(){}
+  void MessageFilterBase::reset() {
+    if (param_source.value()) {
+      return param_source->reset();
+    }
+  }
 
   MessageSourceBase* MessageFilterBase::getRootSource() {
-    if (param_source.value())
+    if (param_source.value()) {
       return param_source->getRootSource();
-    return 0;
+    }
+    return nullptr;
   }
-}
+} // namespace srrg2_core

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-#include <srrg_data_structures/kd_tree.hpp>
+#include <srrg_data_structures/kd_tree.h>
 #include <srrg_system_utils/system_utils.h>
 
 #define EXAMPLE_LOG std::cerr << "srrg2_core::examples::kdtree_example| "
@@ -17,8 +17,8 @@ int main(int argc, char** argv) {
   size_t num_queries = 10000;
   float range = 10;
 
-  KDTree<float, dim>::VectorTDVector kd_tree_points(num_points);
-  KDTree<float, dim>::VectorTDVector kd_tree_queries(num_queries);
+  KDTree_<float, dim>::VectorTDVector kd_tree_points(num_points);
+  KDTree_<float, dim>::VectorTDVector kd_tree_queries(num_queries);
 
   EXAMPLE_LOG << "Generating " << num_points << " points... ";
   for(size_t i = 0; i < num_points; ++i) {
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
   // construct the kd_tree
   float leaf_range = 0.1;
   double t_start = getTime();
-  KDTree<float, dim>* kd_tree = new KDTree<float, dim>(kd_tree_points, leaf_range);
+  KDTree_<float, dim>* kd_tree = new KDTree_<float, dim>(kd_tree_points, leaf_range);
   double t_end = getTime();
   EXAMPLE_LOG << "SRRG Tree Creation Time: " << (t_end - t_start) * 1000 << " ms" << endl;
   
@@ -52,13 +52,12 @@ int main(int argc, char** argv) {
   double max_distance = 0.5;
   t_start = getTime();
   for(size_t i = 0; i < num_queries; ++i) {
-    KDTree<float, dim>::VectorTD query_point = kd_tree_queries[i];
-    KDTree<float, dim>::VectorTD answer;
-    int index;
-    float approx_distance = kd_tree->findNeighbor(answer, index, query_point, max_distance);
-    if (approx_distance > 0) {
-      found++;
-    }
+    KDTree_<float, dim>::VectorTD query_point = kd_tree_queries[i];
+    KDTree_<float, dim>::VectorTDVector answers;
+    std::vector<int> indices;
+    kd_tree->findNeighbors(answers, indices, query_point, max_distance, KDTreeSearchType::Approximate);
+    found+= indices.size();
+    
   }
   t_end = getTime();
   EXAMPLE_LOG << "SRRG Total Search Time : " << (t_end - t_start) * 1000 << " ms" << endl;

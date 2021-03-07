@@ -28,7 +28,10 @@ namespace srrg2_core {
 
     // returns the reference to the value
     virtual ValueType& value() = 0;
-  };
+
+    // returns the reference to the value
+    virtual const ValueType& value() const = 0;
+};
 
   template <typename KeyType_, typename ValueType_>
   struct AbstractMapView_;
@@ -64,6 +67,10 @@ namespace srrg2_core {
     }
 
     ValueType& value() {
+      return _instance->value();
+    }
+
+    const ValueType& value() const {
       return _instance->value();
     }
 
@@ -126,19 +133,19 @@ namespace srrg2_core {
     using ValueType = ValueType_;
     using iterator  = AbstractIterator_<KeyType, ValueType_>;
 
-    const iterator& begin() const {
+    const iterator begin() const {
       return _begin;
     }
 
-    const iterator& end() const {
+    const iterator end() const {
       return _end;
     }
 
-    iterator& begin() {
+    iterator begin() {
       return _begin;
     }
 
-    iterator& end() {
+    iterator end() {
       return _end;
     }
 

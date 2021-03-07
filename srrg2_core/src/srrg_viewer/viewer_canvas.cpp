@@ -473,6 +473,38 @@ namespace srrg2_core {
     _serializer.putPacket(packet->type, packet);
   }
 
+  void ViewerCanvas::putPoints(const PointNormalCurvature3fMatrixCloud& points_) {
+    if (!_setup()) {
+      return;
+    }
+
+    // ia copy everything in a normal vector cloud
+    PointNormalColor3fVectorCloud copy;
+    copy.reserve(points_.size());
+    for (const auto& p : points_) {
+      if (p.status == POINT_STATUS::Invalid) {
+        continue;
+      }
+      PointNormalColor3f copy_p;
+      Vector3f color       = Vector3f::Zero();
+      copy_p.coordinates() = p.coordinates();
+      copy_p.normal()      = p.normal();
+      if (p.curvature() < 0.25) {
+        color = ColorPalette::color3fWhite();
+      } else if (p.curvature() < 0.75) {
+        color = ColorPalette::color3fLightGray();
+      } else {
+        color = ColorPalette::color3fBlack();
+      }
+      copy_p.color() = color;
+      copy.emplace_back(copy_p);
+    }
+
+    // ia packet
+    PacketPointNormalColor3fVectorCloud* packet = new PacketPointNormalColor3fVectorCloud(&copy);
+    _serializer.putPacket(packet->type, packet);
+  }
+
   void ViewerCanvas::flush() {
     if (!_setup())
       return;

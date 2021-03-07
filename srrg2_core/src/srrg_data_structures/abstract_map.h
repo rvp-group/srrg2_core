@@ -9,10 +9,10 @@ namespace srrg2_core {
   template <typename ValueType_, typename ContainerType_>
   struct AbstractMapIteratorDefaultGetter_ {
     using ContainerIteratorType = typename ContainerType_::iterator;
-    inline ValueType_& get(ContainerIteratorType& it) {
+    inline ValueType_& get(ContainerIteratorType& it) const {
       return it->second;
     }
-    inline const ValueType_& get(const ContainerIteratorType& it) {
+    inline const ValueType_& get(const ContainerIteratorType& it) const {
       return it->second;
     }
   };
@@ -56,6 +56,10 @@ namespace srrg2_core {
     }
 
     ValueType& value() override {
+      return getter.get(_it);
+    }
+
+    const ValueType& value() const override {
       return getter.get(_it);
     }
 

@@ -130,11 +130,11 @@ namespace srrg2_core {
     int
     compute(typename BaseType::TargetMatrixType& target, IteratorType begin_, IteratorType end_) {
       PROFILE_TIME("PointProjector::compute(depth buffer)");
-      if (!this->param_canvas_rows.value() || !this->param_canvas_cols.value()) {
+      if (!this->_canvas_rows || !this->_canvas_cols) {
         throw std::runtime_error("PointProjector_::compute| set Canvas sizes "
                                  "before calling the compute!");
       }
-      target.resize(this->param_canvas_rows.value(), this->param_canvas_cols.value());
+      target.resize(this->_canvas_rows, this->_canvas_cols);
       if (this->_config_changed) {
         initCameraMatrix();
         this->_config_changed = 0;
@@ -217,13 +217,15 @@ namespace srrg2_core {
     }
 
     // ! point cloud projection to index matrix, avoid points copy and speed up performance
-    int compute(typename BaseType::TargetMatrixType::IndexMatrixType& index_matrix, IteratorType begin_, IteratorType end_){
+    int compute(typename BaseType::TargetMatrixType::IndexMatrixType& index_matrix,
+                IteratorType begin_,
+                IteratorType end_) {
       PROFILE_TIME("PointProjector::compute(IndexMatrix)");
-      if (!this->param_canvas_rows.value() || !this->param_canvas_cols.value()) {
+      if (!this->_canvas_rows || !this->_canvas_cols) {
         throw std::runtime_error("PointProjector_::compute| set Canvas sizes "
                                  "before calling the compute!");
       }
-      index_matrix.resize(this->param_canvas_rows.value(), this->param_canvas_cols.value());
+      index_matrix.resize(this->_canvas_rows, this->_canvas_cols);
       if (this->_config_changed) {
         initCameraMatrix();
         this->_config_changed = 0;
@@ -234,12 +236,12 @@ namespace srrg2_core {
       adjustProjectionMatrix(projection_matrix);
 
       int num_good = 0;
-      int index = -1;
+      int index    = -1;
       index_matrix.fill(index);
 
       PointType projected_point;
       int source_idx = 0;
-      for(IteratorType it=begin_; it!=end_; ++it, ++source_idx){
+      for (IteratorType it = begin_; it != end_; ++it, ++source_idx) {
         const PointType& p = *it;
         if (p.status != Valid) {
           continue;
@@ -250,7 +252,8 @@ namespace srrg2_core {
           p.template transform<TRANSFORM_CLASS::Isometry, IsometryType>(this->_world_in_camera);
 
         // we project the coordinates field only (field 0 by definition)
-        projected_point.template transformInPlace<0, transform_class, ProjectionType>(projection_matrix);
+        projected_point.template transformInPlace<0, transform_class, ProjectionType>(
+          projection_matrix);
 
         // ds drop negative coordinates on the spot (before rounding to pixel coordinates)
         // ds as the current rounding mode passes points with negative coordinates (-0.5f -> 0)
@@ -279,8 +282,8 @@ namespace srrg2_core {
           continue;
         }
         // cell that was not good became good
-        int& target_index = index_matrix.at(r,c);
-        if(target_index < 0){
+        int& target_index = index_matrix.at(r, c);
+        if (target_index < 0) {
           ++num_good;
         }
         // add the source index to the matrix
@@ -308,8 +311,8 @@ namespace srrg2_core {
       ProjectionType projection_matrix;
       projection_matrix.setIdentity();
       adjustProjectionMatrix(projection_matrix);
-      const size_t& image_rows(this->param_canvas_rows.value());
-      const size_t& image_cols(this->param_canvas_cols.value());
+      const size_t& image_rows(this->_canvas_rows);
+      const size_t& image_cols(this->_canvas_cols);
       const float& minimum_depth_meters(this->param_range_min.value());
       const float& maximum_depth_meters(this->param_range_max.value());
 

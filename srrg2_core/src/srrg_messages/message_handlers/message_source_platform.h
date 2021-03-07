@@ -14,8 +14,9 @@ namespace srrg2_core {
                  "TF topics - each one is a separate transform tree",
                  0);
 
+    MessageSourcePlatform();
     //! @brief ctor/dtor
-    virtual ~MessageSourcePlatform();
+    virtual ~MessageSourcePlatform() = default;
 
     //! @brief binds each TF topic to a transform tree,
     //!        allocates data structures and so on.

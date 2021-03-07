@@ -3,12 +3,11 @@
 
 namespace srrg2_core {
 
-  class MessageSortedSource: public MessageFilterBase {
+  class MessageSortedSource : public MessageFilterBase {
   public:
     PARAM(PropertyDouble, time_interval, "lag time to sort messages", 1., 0);
 
-  public:
-
+    MessageSortedSource();
     BaseSensorMessagePtr getMessage() override;
 
     int numDroppedMessages() const {
@@ -16,6 +15,7 @@ namespace srrg2_core {
     }
 
     void resetCounters();
+    void reset() override;
 
   protected:
     double earliestStamp();
@@ -25,4 +25,5 @@ namespace srrg2_core {
   };
 
   using MessageSortedSourcePtr = std::shared_ptr<MessageSortedSource>;
-}
+
+} // namespace srrg2_core

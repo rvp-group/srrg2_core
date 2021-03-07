@@ -43,8 +43,18 @@ namespace srrg2_core {
 
       PacketBase(type_) {
       allocate(size_, normals_ ? size_ : 0);
-      memcpy(points, points_, num_points * sizeof(Vector3f));
-      memcpy(normals, normals_, num_normals * sizeof(Vector3f));
+      // tg memcpy makes gcc 9.3 sgotting
+      if(points_){
+        for (size_t i = 0; i < num_points; ++i) {
+          points[i] = points_[i];
+        }
+      }
+
+      if(normals_){
+        for (size_t i = 0; i < num_normals; ++i) {
+          normals[i] = normals_[i];
+        }
+      }
     }
 
     virtual ~PacketArray() {

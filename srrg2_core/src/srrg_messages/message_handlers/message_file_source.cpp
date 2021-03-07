@@ -3,9 +3,6 @@
 
 namespace srrg2_core {
 
-  MessageFileSource::MessageFileSource() {
-  }
-
   MessageFileSource::~MessageFileSource() {
     this->close();
   }
@@ -24,6 +21,12 @@ namespace srrg2_core {
   void MessageFileSource::close() {
     MessageFileSourceBase::close();
     _deserializer.reset(0);
+  }
+
+  void MessageFileSource::reset() {
+    open();
+    this->_file_changed_flag = true;
+    MessageFileSourceBase::reset();
   }
 
   // skips anything that is not a sensor message

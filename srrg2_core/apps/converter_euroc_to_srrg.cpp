@@ -674,6 +674,8 @@ void serializeCameraImageAndInfo(Serializer& serializer_,
     camera_info_message->distortion_coefficients.setValue(distortion_coefficients_);
     camera_info_message->camera_matrix.setValue(camera_matrix_);
   }
+  camera_info_message->cols.setValue(image_opencv.cols);
+  camera_info_message->rows.setValue(image_opencv.rows);
 
   // ds write messages related to this image
   serializer_.writeObject(*camera_info_message);

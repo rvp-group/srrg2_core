@@ -1,4 +1,5 @@
 #include <sensor_msgs/image_encodings.h>
+#include <srrg_geometry/geometry_defs.h>
 #include <srrg_messages/instances.h>
 #include <srrg_property/property_container.h>
 #include <srrg_system_utils/system_utils.h>
@@ -7,12 +8,46 @@
 
 namespace srrg2_core_ros {
 
+  // gg: mamma che merda
+  inline void iso2rosPose(geometry_msgs::Pose& dest, const srrg2_core::Vector6f& src) {
+    Eigen::Isometry3f iso = srrg2_core::geometry3d::v2t(src);
+    Eigen::Quaternionf q(iso.linear());
+    dest.position.x    = src(0);
+    dest.position.y    = src(1);
+    dest.position.z    = src(2);
+    dest.orientation.x = q.x();
+    dest.orientation.y = q.y();
+    dest.orientation.z = q.z();
+    dest.orientation.w = q.w();
+  }
+
+  inline void iso2rosPose(geometry_msgs::Pose& dest, const srrg2_core::Isometry3f& src) {
+    iso2rosPose(dest, srrg2_core::geometry3d::t2v(src));
+  }
+
+  inline void rosPose2iso(srrg2_core::Vector6f& dest, const geometry_msgs::Pose& src) {
+    dest(0) = src.position.x;
+    dest(1) = src.position.y;
+    dest(2) = src.position.z;
+    dest(3) = src.orientation.x;
+    dest(4) = src.orientation.y;
+    dest(5) = src.orientation.z;
+    if (src.orientation.w < 0.f) {
+      dest.block<3, 1>(3, 0) = -dest.block<3, 1>(3, 0);
+    }
+  }
+
+  inline void rosPose2iso(srrg2_core::Isometry3f& dest, const geometry_msgs::Pose& src) {
+    srrg2_core::Vector6f dest_;
+    rosPose2iso(dest_, src);
+    dest = srrg2_core::geometry3d::v2t(dest_);
+  }
+
   //--------------------------------------------------------------//
   //-------------------   ROS -> SRRG   --------------------------//
   //--------------------------------------------------------------//
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(sensor_msgs::CameraInfoConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(sensor_msgs::CameraInfoConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -34,8 +69,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(sensor_msgs::ImageConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(sensor_msgs::ImageConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -57,8 +91,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(sensor_msgs::ImuConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(sensor_msgs::ImuConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -92,8 +125,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(sensor_msgs::LaserScanConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(sensor_msgs::LaserScanConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -116,8 +148,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(nav_msgs::OdometryConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(nav_msgs::OdometryConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -138,7 +169,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
+  srrg2_core::BaseSensorMessagePtr
   Converter::convert(geometry_msgs::PointStampedConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
@@ -153,8 +184,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(sensor_msgs::RangeConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(sensor_msgs::RangeConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -171,8 +201,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(tf2_msgs::TFMessageConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(tf2_msgs::TFMessageConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -193,7 +222,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
+  srrg2_core::BaseSensorMessagePtr
   Converter::convert(geometry_msgs::TwistStampedConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
@@ -206,10 +235,20 @@ namespace srrg2_core_ros {
     ROS_TO_SRRG_VEC3(message_out->linear, message_in_->twist.linear);
     ROS_TO_SRRG_VEC3(message_out->angular, message_in_->twist.angular);
 
+    float twln = message_out->linear.value().norm();
+    if (std::isnan(twln) || std::isinf(twln)) {
+      return nullptr;
+    }
+
+    float twan = message_out->angular.value().norm();
+    if (std::isnan(twan) || std::isinf(twan)) {
+      return nullptr;
+    }
+
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
+  srrg2_core::BaseSensorMessagePtr
   Converter::convert(sensor_msgs::PointCloud2ConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
@@ -239,8 +278,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(sensor_msgs::JointStateConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(sensor_msgs::JointStateConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -262,8 +300,7 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
-  srrg2_core::PropertyContainerSerializablePtr
-  Converter::convert(sensor_msgs::NavSatFixConstPtr message_in_) {
+  srrg2_core::BaseSensorMessagePtr Converter::convert(sensor_msgs::NavSatFixConstPtr message_in_) {
     if (!message_in_) {
       return nullptr;
     }
@@ -297,6 +334,46 @@ namespace srrg2_core_ros {
     return message_out;
   }
 
+  srrg2_core::BaseSensorMessagePtr
+  Converter::convert(geometry_msgs::PoseArrayConstPtr message_in_) {
+    if (!message_in_)
+      return nullptr;
+    srrg2_core::PoseArrayMessagePtr message_out(new srrg2_core::PoseArrayMessage);
+    ROS_TO_SRRG_HEADER((*message_out), (*message_in_));
+    message_out->poses.resize(message_in_->poses.size());
+    for (size_t i = 0; i < message_in_->poses.size(); ++i) {
+      srrg2_core::PoseMessage& p_out  = message_out->poses.value(i);
+      const geometry_msgs::Pose& p_in = message_in_->poses[i];
+      rosPose2iso(p_out.pose_vector.value(), p_in);
+    }
+    return message_out;
+  }
+
+  srrg2_core::BaseSensorMessagePtr
+  Converter::convert(geometry_msgs::PoseStampedConstPtr message_in_) {
+    if (!message_in_)
+      return nullptr;
+    srrg2_core::PoseStampedMessagePtr message_out(new srrg2_core::PoseStampedMessage);
+    ROS_TO_SRRG_HEADER((*message_out), (*message_in_));
+    rosPose2iso(message_out->pose.value().pose_vector.value(), message_in_->pose);
+    return message_out;
+  }
+
+  srrg2_core::BaseSensorMessagePtr
+  Converter::convert(geometry_msgs::PoseWithCovarianceStampedConstPtr message_in_) {
+    if (!message_in_)
+      return nullptr;
+    srrg2_core::PoseWithCovarianceStampedMessagePtr message_out(
+      new srrg2_core::PoseWithCovarianceStampedMessage);
+    ROS_TO_SRRG_HEADER((*message_out), (*message_in_));
+    rosPose2iso(message_out->pose.value().pose_vector.value(), message_in_->pose.pose);
+
+    int k = 0;
+    for (int r = 0; r < 6; ++r)
+      for (int c = 0; c < 6; ++c, ++k)
+        message_out->covariance.value()(r, c) = message_in_->pose.covariance[k];
+    return message_out;
+  }
   //--------------------------------------------------------------//
   //-------------------   SRRG -> ROS   --------------------------//
   //--------------------------------------------------------------//
@@ -604,6 +681,63 @@ namespace srrg2_core_ros {
     // ia finally the covariance
     SRRG_TO_ROS_MAT3(message_out->position_covariance, message_in_->covariance);
 
+    return message_out;
+  }
+
+  geometry_msgs::PoseArrayPtr
+  Converter::convert(const srrg2_core::PoseArrayMessagePtr message_in_) {
+    if (!message_in_)
+      return nullptr;
+    geometry_msgs::PoseArrayPtr message_out(new geometry_msgs::PoseArray);
+    SRRG_TO_ROS_HEADER((*message_out), (*message_in_));
+    message_out->poses.resize(message_in_->poses.size());
+    for (size_t i = 0; i < message_in_->poses.size(); ++i) {
+      const srrg2_core::Vector6f& p_in = message_in_->poses.value(i).pose_vector.value();
+      geometry_msgs::Pose& p_out       = message_out->poses[i];
+      iso2rosPose(p_out, p_in);
+    }
+    return message_out;
+  }
+
+  geometry_msgs::PoseStampedPtr
+  Converter::convert(const srrg2_core::PoseStampedMessagePtr message_in_) {
+    if (!message_in_)
+      return nullptr;
+    geometry_msgs::PoseStampedPtr message_out(new geometry_msgs::PoseStamped);
+    SRRG_TO_ROS_HEADER((*message_out), (*message_in_));
+    iso2rosPose(message_out->pose, message_in_->pose.value().pose_vector.value());
+    return message_out;
+  }
+
+  geometry_msgs::PoseWithCovarianceStampedPtr
+  Converter::convert(const srrg2_core::PoseWithCovarianceStampedMessagePtr message_in_) {
+    if (!message_in_)
+      return nullptr;
+    geometry_msgs::PoseWithCovarianceStampedPtr message_out(
+      new geometry_msgs::PoseWithCovarianceStamped);
+    SRRG_TO_ROS_HEADER((*message_out), (*message_in_));
+    iso2rosPose(message_out->pose.pose, message_in_->pose.value().pose_vector.value());
+    size_t k = 0;
+    for (int r = 0; r < message_in_->covariance.value().rows(); ++r)
+      for (int c = 0; c < message_in_->covariance.value().cols(); ++r, ++k)
+        message_out->pose.covariance[k] = message_in_->covariance.value()(r, c);
+
+    return message_out;
+  }
+
+  nav_msgs::PathPtr Converter::convert(const srrg2_core::PathMessagePtr message_in_) {
+    if (!message_in_)
+      return nullptr;
+    nav_msgs::PathPtr message_out(new nav_msgs::Path);
+    SRRG_TO_ROS_HEADER((*message_out), (*message_in_));
+    message_out->poses.resize(message_in_->poses.size());
+    for (size_t pose_num = 0; pose_num < message_in_->poses.size(); ++pose_num) {
+      const srrg2_core::PoseStampedMessage& src = message_in_->poses.value(pose_num);
+      geometry_msgs::PoseStamped& dest          = message_out->poses[pose_num];
+      SRRG_TO_ROS_HEADER(dest, src);
+      message_out->poses.resize(message_in_->poses.size());
+      iso2rosPose(dest.pose, src.pose.value().pose_vector.value());
+    }
     return message_out;
   }
 

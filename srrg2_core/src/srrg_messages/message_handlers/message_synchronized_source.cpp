@@ -1,5 +1,6 @@
 #include "message_synchronized_source.h"
 #include "message_pack.h"
+#include "srrg_system_utils/shell_colors.h"
 
 namespace srrg2_core {
 
@@ -29,6 +30,11 @@ namespace srrg2_core {
     _interval_changed = false;
   }
 
+  MessageSynchronizedSource::MessageSynchronizedSource() {
+    std::cerr << RED << className() << "| is deprecated. Please revise your pipeline using sinks"
+              << RESET << std::endl;
+  }
+
   BaseSensorMessagePtr MessageSynchronizedSource::getMessage() {
     //    std::cerr << __PRETTY_FUNCTION__ << std::endl;
     assert(param_source.value() && "you need to set a valid source");
@@ -46,7 +52,7 @@ namespace srrg2_core {
       BaseSensorMessagePtr msg = src->getMessage();
       if (!msg) {
         //        std::cerr << __PRETTY_FUNCTION__ << ": source ova" << std::endl;
-        return 0;
+        return nullptr;
       }
       //      std::cerr << "got msg " << msg->topic.value() << std::endl;
 
@@ -103,5 +109,11 @@ namespace srrg2_core {
 
   void MessageSynchronizedSource::resetCounters() {
     _num_dropped_messages = 0;
+  }
+
+  void MessageSynchronizedSource::reset() {
+    handleTopicsChanged();
+    _seq = 0;
+    MessageFilterBase::reset();
   }
 } // namespace srrg2_core

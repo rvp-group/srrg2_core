@@ -33,17 +33,17 @@ namespace srrg2_core {
   };
 
   struct PathSearchEntry {
-    PathSearchEntry(const float distance_ = std::numeric_limits<float>::max(),
+    PathSearchEntry(const float cost_ = std::numeric_limits<float>::max(),
         PathMatrixCell* cell_ = 0):
-          distance(distance_),
+          cost(cost_),
           cell(cell_) {
     }
 
     inline bool operator<(const PathSearchEntry& e) const {
-      return e.distance < distance;
+      return e.cost < cost;
     }
 
-    float distance;
+    float cost;
     PathMatrixCell* cell;
   };
 

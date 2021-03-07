@@ -40,6 +40,12 @@ namespace srrg2_core_ros {
     MessageFileSourceBase::open(bag_filename_);
   }
 
+  void MessageROSBagSource::reset() {
+    if (_view) {
+      _view_it = _view->begin();
+    }
+  }
+
   void MessageROSBagSource::close() {
     MessageFileSourceBase::close();
     _bag.close();
@@ -51,7 +57,7 @@ namespace srrg2_core_ros {
       open(param_filename.value());
     }
     if (!_view) {
-      return BaseSensorMessagePtr(0);
+      return nullptr;
     }
     while (_view_it != _view->end() && _running) {
       const std::string& topic_name = _view_it->getTopic();
@@ -79,7 +85,7 @@ namespace srrg2_core_ros {
       CONVERT(sensor_msgs::JointState);
       CONVERT(sensor_msgs::NavSatFix);
 
-      _view_it++;
+      ++_view_it;
       if (!srrg_message) {
         if (param_verbose.value()) {
           std::cerr << "WARNING: ignoring non-configured conversion for data type [" << data_type
@@ -95,7 +101,7 @@ namespace srrg2_core_ros {
         return srrg_base_message;
       }
     }
-    return BaseSensorMessagePtr(0);
+    return nullptr;
   }
 
 } // namespace srrg2_core_ros

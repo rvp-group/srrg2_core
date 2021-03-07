@@ -31,6 +31,11 @@ namespace srrg2_core {
       return _image_ptr.get();
     }
 
+    // ia move initialization only (since unique ptrs)
+    inline void setImagePtr(std::unique_ptr<BaseImage>&& image_) {
+      _image_ptr = std::move(image_);
+    }
+
     virtual bool read(std::istream& is);
     virtual void write(std::ostream& os) const;
     const std::string& const_extension() const;

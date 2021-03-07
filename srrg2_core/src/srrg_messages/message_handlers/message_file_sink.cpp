@@ -4,21 +4,20 @@
 namespace srrg2_core {
 
   void MessageFileSink::open() {
-    
     this->close();
-    const std::string& fullname=param_filename.value();
-    size_t lastindex = fullname.find_last_of(".");
+    const std::string& fullname = param_filename.value();
+    size_t lastindex            = fullname.find_last_of(".");
     if (lastindex == fullname.npos) {
       throw std::runtime_error("no valid path selected");
     }
 
-    std::string rawname = fullname.substr(0, lastindex);
+    std::string rawname     = fullname.substr(0, lastindex);
     std::string binary_path = rawname + ".d/<classname>.<nameAttribute>.<id>.<ext>";
     _serializer.reset(new Serializer);
     _serializer->setFilePath(fullname);
     _serializer->setBinaryPath(binary_path);
-    _is_open = true;
-    _file_changed_flag=false;
+    _is_open           = true;
+    _file_changed_flag = false;
   }
 
   void MessageFileSink::open(const std::string& fullname) {
@@ -29,7 +28,7 @@ namespace srrg2_core {
     if (!_is_open) {
       return;
     }
-    _serializer.reset(0);
+    _serializer.reset(nullptr);
     _is_open = false;
   }
 
@@ -37,7 +36,7 @@ namespace srrg2_core {
     if (_file_changed_flag) {
       open();
     }
-    if (!_serializer.get()) {
+    if (!_serializer) {
       std::cerr << "invalid serialization context, did you call open() first" << std::endl;
       return false;
     }
@@ -71,4 +70,4 @@ namespace srrg2_core {
     }
   }
 
-}
+} // namespace srrg2_core

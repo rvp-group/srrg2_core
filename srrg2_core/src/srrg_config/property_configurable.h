@@ -1,7 +1,6 @@
 #pragma once
-#include "srrg_property/property_identifiable.h"
-
 #include "configurable.h"
+#include "srrg_property/property_identifiable.h"
 
 namespace srrg2_core {
 

@@ -1,41 +1,39 @@
 #include "configurable.h"
 #include "configurable_shell.h"
+#include "configurable_command.h"
 #include <sstream>
 
 namespace srrg2_core {
 
-  class ConfigurableCommandHelp : public Configurable::CommandBase {
-  public:
-    ConfigurableCommandHelp(Configurable* c) :
-      Configurable::CommandBase(c, "help", "lists possible commands for this module") {
-    }
-
-    virtual ~ConfigurableCommandHelp() {
-    }
-
-    bool execute(ConfigurableShell* shell_,
-                 std::string& response,
-                 const std::vector<std::string>& tokens) override {
-      std::ostringstream os;
-      os << "module: " << _configurable->className() << " ptr: " << _configurable << std::endl;
-      for (auto& it : _configurable->_command_map) {
-        os << "\t" << it.second->tag() << ": " << it.second->helpMessage() << std::endl;
-      }
-      response = os.str();
-      return true;
-    }
-  };
-
   Configurable::CommandBase::~CommandBase() {
   }
 
+
   Configurable::Configurable() {
-    addCommand(new ConfigurableCommandHelp(this));
+    addCommand (new ConfigurableCommand_
+                < Configurable, typeof(&Configurable::cmdHelp), std::string>
+                (this,
+                 "help",
+                 "prints all available commands of this module",
+                 &Configurable::cmdHelp));
+    addCommand (new ConfigurableCommand_
+                < Configurable, typeof(&Configurable::cmdReset), std::string>
+                (this,
+                 "reset",
+                 "resets this module and all its descendants",
+                 &Configurable::cmdReset));
   }
 
+  void Configurable::reset() {
+    std::cerr << className() << "| reset not implemented" << std::endl;
+  }
+  
   void Configurable::addCommand(CommandBase* cmd) {
     if (command(cmd->tag())) {
-      throw std::runtime_error("command already in map");
+      std::string message;
+      message += "command " + cmd->tag();
+      message += "already in map";
+      throw std::runtime_error(message.c_str());
     }
     _command_map.insert(std::make_pair(cmd->tag(), CommandBasePtr(cmd)));
   }
@@ -61,6 +59,21 @@ namespace srrg2_core {
       return false;
     }
     return cmd->execute(shell_, response, tokens);
+  }
+
+  bool Configurable::cmdReset(std::string& response) {
+    response="";
+    reset();
+    return true;
+  }
+
+  bool Configurable::cmdHelp(std::string& response) {
+    std::ostringstream os;
+    for (auto& it : _command_map) {
+      os << "\t" << it.second->tag() << ": " << it.second->helpMessage() << std::endl;
+    }
+    response=os.str();
+    return true;
   }
 
 } // namespace srrg2_core

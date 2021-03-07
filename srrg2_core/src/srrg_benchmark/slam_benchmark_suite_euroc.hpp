@@ -14,9 +14,33 @@ namespace srrg2_core {
     virtual ~SLAMBenchmarkSuiteEuRoC() {
     }
 
-    void loadGroundTruth(const std::string& filepath_,
-                         const std::string& filepath_additional_ = std::string()) override {
+    virtual void loadGroundTruth(const std::string& filepath_,
+                                 const std::string& filepath_additional_ = std::string()) override {
+      throw std::runtime_error(
+        "SLAMBenchmarkSuiteEuRoC::loadGroundTruth|don't call my name, Alejandro");
+    }
+
+    virtual void loadDataset(const std::string& filepath_,
+                             const size_t& number_of_message_packs_to_read_ = -1,
+                             const size_t& number_of_message_pack_to_start_ = 0) override {
+      throw std::runtime_error("SLAMBenchmarkSuiteEuRoC::loadDataset|don't call my name, Roberto");
+    }
+
+    void loadGroundTruthFromBOSS(const std::string& filepath_,
+                                 const std::string& topic_ = "/ground_truth") override {
       _ground_truth_path = filepath_;
+
+      MessageFileSourcePtr source(new MessageFileSource);
+      MessageSortedSourcePtr sorter(new MessageSortedSource);
+
+      source->open(filepath_);
+      if (!source->isOpen()) {
+        throw std::runtime_error(
+          "SLAMBenchmarkSuiteKITTI::loadGroundTruth|unable to load dataset: " + filepath_);
+      }
+
+      sorter->param_source.setValue(source);
+      sorter->param_time_interval.setValue(0.1);
 
       // ds open ground truth file in EuRoC format
       std::ifstream ground_truth_stream(filepath_, std::ios::in);
@@ -40,58 +64,48 @@ namespace srrg2_core {
       constexpr double minimum_timestamp_delta_for_absolute_poses = 1 / 30.0;
       _absolute_ground_truth_poses.reserve(10000);
       Isometry3f transform_shift_to_origin(Isometry3f::Identity());
+      // ds read file by tokens
+      double timestamp_seconds = 0;
 
-      // ds parse string into tokens split by custom delimiter comma UAGH
-      while (std::getline(ground_truth_stream, buffer)) {
-        std::replace(buffer.begin(), buffer.end(), ',', ' ');
-        std::stringstream stream(buffer);
+      bool first_message           = true;
+      BaseSensorMessagePtr message = nullptr;
+      while ((message = sorter->getMessage())) {
+        if (topic_ != message->topic.value()) {
+          continue;
+        }
+        if (auto odom_ptr = std::dynamic_pointer_cast<OdometryMessage>(message)) {
+          timestamp_seconds = odom_ptr->timestamp.value();
 
-        // ds ground truth values
-        double timestamp_nanoseconds, p_RS_R_x, p_RS_R_y, p_RS_R_z, q_RS_w, q_RS_x, q_RS_y, q_RS_z,
-          v_RS_R_x, v_RS_R_y, v_RS_R_z, b_w_RS_S_x, b_w_RS_S_y, b_w_RS_S_z, b_a_RS_S_x, b_a_RS_S_y,
-          b_a_RS_S_z;
-        while (stream >> timestamp_nanoseconds >> p_RS_R_x >> p_RS_R_y >> p_RS_R_z >> q_RS_w >>
-               q_RS_x >> q_RS_y >> q_RS_z >> v_RS_R_x >> v_RS_R_y >> v_RS_R_z >> b_w_RS_S_x >>
-               b_w_RS_S_y >> b_w_RS_S_z >> b_a_RS_S_x >> b_a_RS_S_y >> b_a_RS_S_z) {
-          // ds get timestamp
-          const double timestamp_seconds = timestamp_nanoseconds / 1e9;
+          Isometry3f pose = odom_ptr->pose.value();
+          if (timestamp_seconds - previous_timestamp_seconds > 0) {
+            // ds insertion must succeed otherwise there are duplicates!
+            _relative_ground_truth_poses.push_back(RelativeEstimateStamped(
+              pose.inverse() * previous_pose, previous_timestamp_seconds, timestamp_seconds));
 
-          // ds assemble pose - in euroc the ground truth is given for IMU w.r.t. world
-          // ds NOTE that since we're only considering relative gt measurements,
-          // we don't need to compute the actual camera pose (as the IMU offset is assumed constant)
-          Isometry3f imu_in_world;
-          imu_in_world.translation() = Vector3f(p_RS_R_x, p_RS_R_y, p_RS_R_z);
-          imu_in_world.linear() = Quaternionf(q_RS_w, q_RS_x, q_RS_y, q_RS_z).toRotationMatrix();
-
-          // ds euroc has UNIX timestamps, check if initial is set
-          if (previous_timestamp_seconds > 0) {
-            // ds compute relative estimate to previous pose (except for the first measurement)
-            _relative_ground_truth_poses.push_back(
-              RelativeEstimateStamped(imu_in_world.inverse() * previous_pose,
-                                      previous_timestamp_seconds,
-                                      timestamp_seconds));
-
-            // ds compute new absolute estimate if timestamp delta is sufficient
-            if (timestamp_seconds - previous_timestamp_absolute_seconds >
-                minimum_timestamp_delta_for_absolute_poses) {
-              _absolute_ground_truth_poses.emplace_back(AbsoluteEstimateStamped(
-                transform_shift_to_origin * imu_in_world, timestamp_seconds));
+            if (first_message) {
+              _absolute_ground_truth_poses.emplace_back(
+                AbsoluteEstimateStamped(Isometry3f::Identity(), timestamp_seconds));
               previous_timestamp_absolute_seconds = timestamp_seconds;
+              transform_shift_to_origin           = pose.inverse();
+              std::cerr
+                << "SLAMBenchmarkSuiteEuRoC::loadGroundTruth|shifting absolute GT origin by: "
+                << std::endl;
+              std::cerr << transform_shift_to_origin.matrix() << std::endl;
+            } else {
+              // ds compute new absolute estimate if timestamp delta is sufficient
+              if (timestamp_seconds - previous_timestamp_absolute_seconds >
+                  minimum_timestamp_delta_for_absolute_poses) {
+                _absolute_ground_truth_poses.emplace_back(
+                  AbsoluteEstimateStamped(transform_shift_to_origin * pose, timestamp_seconds));
+                previous_timestamp_absolute_seconds = timestamp_seconds;
+              }
             }
-          } else {
-            _absolute_ground_truth_poses.emplace_back(
-              AbsoluteEstimateStamped(Isometry3f::Identity(), timestamp_seconds));
-            previous_timestamp_absolute_seconds = timestamp_seconds;
-            transform_shift_to_origin           = imu_in_world.inverse();
-            std::cerr << "SLAMBenchmarkSuiteEuRoC::loadGroundTruth|shifting absolute GT origin by: "
-                      << std::endl;
-            std::cerr << transform_shift_to_origin.matrix() << std::endl;
           }
           previous_timestamp_seconds = timestamp_seconds;
-          previous_pose              = imu_in_world;
+          previous_pose              = pose;
         }
       }
-      ground_truth_stream.close();
+
       std::cerr << "SLAMBenchmarkSuiteEuRoC::loadGroundTruth|loaded relative poses: "
                 << _relative_ground_truth_poses.size() << std::endl;
       std::cerr << "SLAMBenchmarkSuiteEuRoC::loadGroundTruth|loaded absolute poses: "

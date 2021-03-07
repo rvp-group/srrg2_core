@@ -6,6 +6,7 @@
 #include <limits>
 #include <stdexcept>
 #include "id_placeholder.h"
+#include <Eigen/Core>
 
 namespace srrg2_core {
 
@@ -75,10 +76,10 @@ protected:
 
 class NumberData: public ValueData {
 public:
-  NumberData(double value=0.0, int precision=std::numeric_limits<double>::digits10):
+  NumberData(double value=0.0, int precision=std::numeric_limits<double>::max_digits10):
     _value(value),
     _precision(precision) {}
-  NumberData(float value=0.0, int precision=std::numeric_limits<float>::digits10):
+  NumberData(float value=0.0, int precision=std::numeric_limits<float>::max_digits10):
     _value(value),
     _precision(precision) {}
   NumberData(int value=0, int precision=std::numeric_limits<double>::digits10):
@@ -126,7 +127,7 @@ public:
   void add(const char* value);
   void add(ValueData* value);
   void addPointer(Identifiable* ptr);
-
+  
   void set(size_t idx, bool value);
   void set(size_t idx, int value);
   void set(size_t idx, uint64_t value);
@@ -217,6 +218,52 @@ public:
   }
   
   ValueData* getField(const std::string& name);
+
+  template <typename EigenType_>
+  EigenType_ getEigen(const std::string& name) {
+    EigenType_ eigen_object;
+    ValueData* v=getField(name);
+    int rows=eigen_object.matrix().rows();
+    int cols=eigen_object.matrix().cols();
+    ArrayData* adata;
+    if  (eigen_object.matrix().SizeAtCompileTime==Eigen::Dynamic){
+        ObjectData* o=dynamic_cast<ObjectData*>(v);
+        rows=o->getInt("rows");
+        cols=o->getInt("cols");
+        eigen_object.matrix().resize(rows,cols);
+        v=o->getField("values");
+        adata=dynamic_cast<ArrayData*>(v);
+      } else {
+      adata=dynamic_cast<ArrayData*>(v);
+      int k=0;
+      for (int r=0; r<rows; ++r)
+        for (int c=0; c<cols; ++c, ++k) {
+          eigen_object.matrix()(r,c) = (*adata)[k].getFloat();
+        }
+    }
+    return eigen_object;
+  }
+  
+  template <typename EigenType_>
+  void setEigen(const std::string& name, const EigenType_& eigen_object) {
+    ArrayData* adata=new ArrayData;
+    int rows=eigen_object.matrix().rows();
+    int cols=eigen_object.matrix().cols();
+    int k=0;
+    for (int r=0; r<rows; ++r)
+      for (int c=0; c<cols; ++c, ++k) {
+        adata->add(eigen_object.matrix()(r,c));
+      }
+    if (eigen_object.matrix().SizeAtCompileTime==Eigen::Dynamic) {
+        ObjectData* o= new ObjectData;
+        o->setInt("rows", rows);
+        o->setInt("cols", cols);
+        o->setField("values", adata);
+        setField(name, o);
+      } else {
+        setField(name, adata);
+    }
+  }
   
   virtual ~ObjectData();
 

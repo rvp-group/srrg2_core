@@ -500,6 +500,8 @@ void serializeCameraImageAndInfo(MessageFileSink& sink_,
   camera_info_message->projection_model.setValue("pinhole");
   camera_info_message->distortion_model.setValue("undistorted-rectified");
   camera_info_message->camera_matrix.setValue(calibration_matrix_);
+  camera_info_message->cols.setValue(image_opencv.cols);
+  camera_info_message->rows.setValue(image_opencv.rows);
 
   sink_.putMessage(image_message);
   sink_.putMessage(camera_info_message);

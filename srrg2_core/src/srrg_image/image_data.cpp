@@ -13,7 +13,8 @@ namespace srrg2_core {
   }
 
   bool ImageData::read(std::istream& is) {
-    BaseImage* _image = image();
+    // ia WHYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
+    // BaseImage* _image = image();
     std::vector<unsigned char> buf;
     const int block_size = 4096;
     int bytes_read       = 0;
@@ -29,11 +30,13 @@ namespace srrg2_core {
       cv::Mat read_image = cv::imdecode(buf, CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
       if (!read_image.empty()) {
         //        std::cerr << "converting: " << std::endl;
-        if (!_image) {
-          _image = BaseImage::newImagefromCv(read_image);
-          _image_ptr.reset(_image);
+        if (_image_ptr == nullptr) {
+          // _image = BaseImage::newImagefromCv(read_image);
+          // _image_ptr.reset(_image);
+          _image_ptr.reset(BaseImage::newImagefromCv(read_image));
         } else {
-          _image->fromCv(read_image);
+          // _image->fromCv(read_image);
+          _image_ptr->fromCv(read_image);
         }
         return true;
       }
@@ -45,15 +48,17 @@ namespace srrg2_core {
   }
 
   void ImageData::write(std::ostream& os) const {
-    const BaseImage* _image = image();
+    assert(_image_ptr != nullptr && "ImageData::write|ERROR, invalid image");
+    // ia WHYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
+    // const BaseImage* _image = image();
     std::vector<unsigned char> buf;
     cv::Mat image_to_write;
 
-    if (_image->type() == TYPE_UNKNOWN) {
+    if (_image_ptr->type() == TYPE_UNKNOWN) {
       throw std::runtime_error("Unknown image type!");
     }
-    _image->toCv(image_to_write);
-    if (_image->type() == TYPE_8UC3 || _image->type() == TYPE_32FC3) {
+    _image_ptr->toCv(image_to_write);
+    if (_image_ptr->type() == TYPE_8UC3 || _image_ptr->type() == TYPE_32FC3) {
       cv::cvtColor(image_to_write, image_to_write, CV_BGR2RGB);
     }
 
@@ -66,80 +71,85 @@ namespace srrg2_core {
   }
 
   void ImageData::_encodeImage(std::ostream& os_) const {
-    const BaseImage* _image = image();
+    assert(_image_ptr != nullptr && "ImageData::_encodeImage|ERROR, invalid image");
+    // ia WHYYYYYYYYYYYYYYYY
+    // const BaseImage* _image = image();
     ImageHeader header;
-    header.type = _image->type();
-    header.rows = _image->rows();
-    header.cols = _image->cols();
+    header.type = _image_ptr->type();
+    header.rows = _image_ptr->rows();
+    header.cols = _image_ptr->cols();
 
     const std::size_t size = header.rows * header.cols;
 
     os_.write((char*) &header, sizeof(ImageHeader));
 
-    const std::size_t element_size = CV_ELEM_SIZE(_image->type());
+    const std::size_t element_size = CV_ELEM_SIZE(_image_ptr->type());
 
     // Syscall param writev(vector[...]) points to uninitialised byte(s)
-    os_.write(_image->rawData(), size * element_size);
+    os_.write(_image_ptr->rawData(), size * element_size);
     //-----------???--------------
   }
 
   bool ImageData::_decodeImage(const std::vector<unsigned char>& buffer_) {
-    BaseImage* _image = _image_ptr.get();
-
+    // ia read the header
     ImageHeader* header = (ImageHeader*) &buffer_[0];
-
     std::vector<unsigned char> data_buffer(buffer_.begin() + sizeof(ImageHeader), buffer_.end());
 
     // const std::size_t element_size = CV_ELEM_SIZE(header->type);
     // const std::size_t vector_size = header->rows*header->cols;
 
-    if (_image) {
-      delete _image;
-    }
-    _image = 0;
+    // ia working with smart pointer, forget the goddamn .get method
+    // ia Mircolosi master of smart pointers from what I see below
+    // BaseImage* _image = _image_ptr.get();
+    // if (_image) {
+    //   delete _image;
+    // }
+    // _image = 0;
 
     int rows = header->rows;
     int cols = header->cols;
     switch (header->type) {
       case TYPE_8UC1:
-        _image = new ImageUInt8(rows, cols);
+        _image_ptr.reset(new ImageUInt8(rows, cols));
         break;
       case TYPE_16UC1:
-        _image = new ImageUInt16(rows, cols);
+        _image_ptr.reset(new ImageUInt16(rows, cols));
         break;
       case TYPE_32SC1:
-        _image = new ImageInt(rows, cols);
+        _image_ptr.reset(new ImageInt(rows, cols));
         break;
       case TYPE_32FC1:
-        _image = new ImageFloat(rows, cols);
+        _image_ptr.reset(new ImageFloat(rows, cols));
         break;
       case TYPE_64FC1:
-        _image = new ImageDouble(rows, cols);
+        _image_ptr.reset(new ImageDouble(rows, cols));
         break;
       case TYPE_8UC3:
-        _image = new ImageVector3uc(rows, cols);
+        _image_ptr.reset(new ImageVector3uc(rows, cols));
         break;
       case TYPE_32FC3:
-        _image = new ImageVector3f(rows, cols);
+        _image_ptr.reset(new ImageVector3f(rows, cols));
         break;
       case TYPE_8UC4:
-        _image = new ImageVector4uc(rows, cols);
+        _image_ptr.reset(new ImageVector4uc(rows, cols));
         break;
       case TYPE_32FC4:
-        _image = new ImageVector4f(rows, cols);
+        _image_ptr.reset(new ImageVector4f(rows, cols));
         break;
       default:
-        throw std::runtime_error("Unknown type");
+        throw std::runtime_error("ImageData::_decodeImage|ERROR, unknown type" +
+                                 std::to_string(header->type) + " ]");
         return false;
     }
-    _image->fromBuffer(&data_buffer[0]);
+    _image_ptr->fromBuffer(&data_buffer[0]);
     return true;
   }
 
   // TODO make extension() const in BLOB and avoid this shit down here
   const std::string& ImageData::const_extension() const {
-    const BaseImage* _image = image();
-    switch (_image->type()) {
+    // ia WHYYYYYYYYYYYYYYY
+    // const BaseImage* _image = image();
+    switch (_image_ptr->type()) {
       case TYPE_8UC3:
       case TYPE_8UC1:
         return PNG_EXTENSION;

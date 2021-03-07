@@ -29,6 +29,11 @@ target_link_libraries(converter_malaga_to_srrg
   srrg2_messages_library
 )
 
+add_executable(extract_gt_from_srrg extract_gt_from_srrg.cpp)
+target_link_libraries(extract_gt_from_srrg
+  srrg2_messages_library
+)
+
 add_executable(geigerzaehler geigerzaehler.cpp)
 target_link_libraries(geigerzaehler
   srrg2_system_utils_library

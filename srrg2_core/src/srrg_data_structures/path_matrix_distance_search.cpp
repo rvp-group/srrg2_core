@@ -65,7 +65,7 @@ namespace srrg2_core {
           neighbor->distance = d;
           PathSearchEntry q;
           q.cell     = neighbor;
-          q.distance = neighbor->distance;
+          q.cost = neighbor->distance;
           _queue.push(q);
         }
       }

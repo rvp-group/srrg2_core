@@ -1,6 +1,3 @@
-add_executable(abstract_container_example abstract_container_example.cpp)
-
-
 add_executable(boss_property_example boss_property_example.cpp)
 target_link_libraries(boss_property_example
  srrg2_system_utils_library
@@ -29,16 +26,6 @@ add_executable(container_pack_example
   container_pack_example.cpp
 )
 
-add_executable(geometry_example geometry_example.cpp)
-target_link_libraries(geometry_example
-  srrg2_system_utils_library
-  ${catkin_LIBRARIES})
-
-add_executable(image_data_example image_data_example.cpp)
-target_link_libraries(image_data_example
-  srrg2_image_library
-  ${catkin_LIBRARIES})
-
 add_executable(image_loading image_loading.cpp)
 target_link_libraries(image_loading
   srrg2_system_utils_library
@@ -48,11 +35,6 @@ target_link_libraries(image_loading
 add_executable(kdtree_example kdtree_example.cpp)
 target_link_libraries(kdtree_example
   srrg2_system_utils_library)
-
-add_executable(matrix_bilinear_interpolation_example matrix_bilinear_interpolation_example.cpp)
-target_link_libraries(matrix_bilinear_interpolation_example
-  srrg2_system_utils_library
-  ${catkin_LIBRARIES})
 
 add_executable(matrix_example matrix_example.cpp)
 target_link_libraries(matrix_example
@@ -102,3 +84,8 @@ target_link_libraries(shell_colors_example
 add_executable(command_line_example command_line_example.cpp)
 target_link_libraries(command_line_example
   srrg2_system_utils_library)
+
+
+add_executable(timestamp_filter_example timestamp_filter_example.cpp)
+target_link_libraries(timestamp_filter_example
+srrg2_system_utils_library)

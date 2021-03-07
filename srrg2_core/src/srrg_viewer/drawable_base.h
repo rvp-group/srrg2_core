@@ -7,14 +7,23 @@ namespace srrg2_core {
   //!        using OpenGL and OpenCV
   class DrawableBase {
   public:
-    virtual void draw(ViewerCanvasPtr gl_canvas_) const {
-      // ds optional overriding
+    inline void draw(ViewerCanvasPtr gl_canvas_)  {
+      if (! _need_redraw)
+        return;
+      _drawImpl(gl_canvas_);
+      _need_redraw=false;
     }
     // ia now disabled, everything goes trough the same canvas - TODO rethink
     // virtual void draw(cv::Mat& cv_canvas_) const {
     //   // ds optional overriding
     // }
     virtual ~DrawableBase();
+    inline bool needRedraw() const { return _need_redraw;}
+  protected:
+    virtual void _drawImpl(ViewerCanvasPtr gl_canvas_) const {
+      // ds optional overriding
+    }
+    bool _need_redraw=true;
   };
 
   using DrawableBasePtr = std::shared_ptr<DrawableBase>;

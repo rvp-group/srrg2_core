@@ -14,9 +14,22 @@ namespace srrg2_core {
     virtual ~SLAMBenchmarkSuiteKITTI() {
     }
 
-    void loadDataset(const std::string& filepath_,
-                     const size_t& number_of_message_packs_to_read_ = -1,
-                     const size_t& number_of_message_pack_to_start_ = 0) override {
+    virtual void loadGroundTruth(const std::string& filepath_,
+                                 const std::string& filepath_additional_ = std::string()) override {
+      throw std::runtime_error(
+        "SLAMBenchmarkSuiteEuRoC::loadGroundTruth|don't call my name, Alejandro");
+    }
+
+    virtual void loadDataset(const std::string& filepath_,
+                             const size_t& number_of_message_packs_to_read_ = -1,
+                             const size_t& number_of_message_pack_to_start_ = 0) override {
+      throw std::runtime_error("SLAMBenchmarkSuiteEuRoC::loadDataset|don't call my name, Roberto");
+    }
+
+    virtual void loadDatasetWithTF(const std::string& filepath_,
+                                   MessageSourcePlatformPtr platform_source_,
+                                   const size_t& number_of_message_packs_to_read_ = -1,
+                                   const size_t& number_of_message_pack_to_start_ = 0) {
       _dataset_path                    = filepath_;
       _number_of_message_packs_to_read = number_of_message_packs_to_read_;
       _number_of_message_pack_to_start = number_of_message_pack_to_start_;
@@ -29,7 +42,15 @@ namespace srrg2_core {
         throw std::runtime_error("SLAMBenchmarkSuiteKITTI::loadDataset|unable to load dataset: " +
                                  filepath_);
       }
-      sorter->param_source.setValue(source);
+
+      if (platform_source_) {
+        platform_source_->param_source.setValue(source);
+        sorter->param_source.setValue(platform_source_);
+      } else {
+        std::cerr << "SLAMBenchmarkSuiteKITTI::loadDatasetWithTF| has no platform source"
+                  << std::endl;
+        sorter->param_source.setValue(source);
+      }
       sorter->param_time_interval.setValue(0.1);
 
       // ds set up synchronizer for KITTI datasets
@@ -39,7 +60,6 @@ namespace srrg2_core {
       _synchronizer->param_topics.value().push_back("/camera_right/image_raw");
       _synchronizer->param_topics.value().push_back("/camera_left/image_raw/info");
       _synchronizer->param_topics.value().push_back("/camera_right/image_raw/info");
-      _synchronizer->param_topics.value().push_back("/tf");
       _synchronizer->param_time_interval.setValue(0.1);
       std::cerr << "SLAMBenchmarkSuiteKITTI::loadDataset|configured message playback for dataset: '"
                 << filepath_ << "'" << std::endl;
@@ -49,62 +69,52 @@ namespace srrg2_core {
       }
     }
 
-    void loadGroundTruth(const std::string& filepath_,
-                         const std::string& filepath_additional_ = std::string()) override {
+    void loadGroundTruthFromBOSS(const std::string& filepath_,
+                                 const std::string& topic_ = "/ground_truth") override {
       _ground_truth_path = filepath_;
 
-      // ds open ground truth file in KITTI format: # R t (3x4)
-      std::ifstream ground_truth_file(filepath_, std::ios::in);
-      if (!ground_truth_file.good() || !ground_truth_file.is_open()) {
+      MessageFileSourcePtr source(new MessageFileSource());
+      MessageSortedSourcePtr sorter(new MessageSortedSource());
+
+      source->open(filepath_);
+      if (!source->isOpen()) {
         throw std::runtime_error(
-          "SLAMBenchmarkSuiteKITTI::loadGroundTruth|unable to read ground truth file: " +
-          filepath_);
+          "SLAMBenchmarkSuiteKITTI::loadGroundTruth|unable to load dataset: " + filepath_);
       }
 
-      // ds KITTI stores timestamps in a separate file
-      std::ifstream timestamps_file(filepath_additional_, std::ios::in);
-      if (!timestamps_file.good() || !timestamps_file.is_open()) {
-        throw std::runtime_error(
-          "SLAMBenchmarkSuiteKITTI::loadGroundTruth|unable to read timestamps file: " +
-          filepath_additional_);
-      }
+      sorter->param_source.setValue(source);
+      sorter->param_time_interval.setValue(0.1);
+
       _relative_ground_truth_poses.clear();
 
       // ds relative estimate computation
-      double previous_timestamp_seconds = 0;
+      double previous_timestamp_seconds = std::numeric_limits<double>::max();
       Isometry3f previous_pose(Isometry3f::Identity());
 
       // ds read file by tokens
       double timestamp_seconds = 0;
-      double r00, r01, r02, tx, r10, r11, r12, ty, r20, r21, r22, tz;
-      while (ground_truth_file >> r00 >> r01 >> r02 >> tx >> r10 >> r11 >> r12 >> ty >> r20 >>
-             r21 >> r22 >> tz) {
-        // ds assemble isometry
-        Isometry3f pose(Isometry3f::Identity());
-        pose.translation() = Vector3f(tx, ty, tz);
-        pose.linear() << r00, r01, r02, r10, r11, r12, r20, r21, r22;
 
-        // ds retrieve timestamp from timestamps file
-        std::string buffer;
-        if (!std::getline(timestamps_file, buffer)) {
-          throw std::runtime_error(
-            "SLAMBenchmarkSuiteKITTI::loadGroundTruth|unable to parse timestamp");
+      BaseSensorMessagePtr message = nullptr;
+      while ((message = sorter->getMessage())) {
+        if (topic_ != message->topic.value()) {
+          continue;
         }
-        timestamp_seconds = std::stod(buffer);
+        if (auto odom_ptr = std::dynamic_pointer_cast<OdometryMessage>(message)) {
+          timestamp_seconds = odom_ptr->timestamp.value();
 
-        // ds compute relative estimate to previous pose (except for the first measurement)
-        if (timestamp_seconds - previous_timestamp_seconds > 0) {
-          // ds insertion must succeed otherwise there are duplicates!
-          _relative_ground_truth_poses.push_back(RelativeEstimateStamped(
-            pose.inverse() * previous_pose, previous_timestamp_seconds, timestamp_seconds));
+          Isometry3f pose = odom_ptr->pose.value();
+          if (timestamp_seconds - previous_timestamp_seconds > 0) {
+            // ds insertion must succeed otherwise there are duplicates!
+            _relative_ground_truth_poses.push_back(RelativeEstimateStamped(
+              pose.inverse() * previous_pose, previous_timestamp_seconds, timestamp_seconds));
+          }
+          previous_timestamp_seconds = timestamp_seconds;
+          previous_pose              = pose;
         }
-        previous_timestamp_seconds = timestamp_seconds;
-        previous_pose              = pose;
       }
 
       std::cerr << "SLAMBenchmarkSuiteKITTI::loadGroundTruth|loaded relative poses: "
                 << _relative_ground_truth_poses.size() << std::endl;
-      ground_truth_file.close();
     }
 
     BaseSensorMessagePtr getMessage() override {

@@ -23,8 +23,7 @@ namespace srrg2_core {
     }
   }
 
-  void PropertyContainerBase::deserialize(ObjectData& data,
-                                          IdContext& context) {
+  void PropertyContainerBase::deserialize(ObjectData& data, IdContext& context) {
     if (data.getField("name")) {
       _name = data.getString("name");
     }
@@ -48,7 +47,7 @@ namespace srrg2_core {
     if (it != _properties.end()) {
       return it->second;
     }
-    return 0;
+    return nullptr;
   }
 
   void PropertyContainerBase::getConnectedContainers(
@@ -58,8 +57,7 @@ namespace srrg2_core {
         dynamic_cast<PropertyIdentifiablePtrInterface*>(it);
       if (single) {
         PropertyContainerIdentifiablePtr cont =
-          dynamic_pointer_cast<PropertyContainerIdentifiable>(
-            single->getSharedPtr());
+          dynamic_pointer_cast<PropertyContainerIdentifiable>(single->getSharedPtr());
         if (!cont)
           continue;
         connected.insert(std::make_pair(single->name(), cont));
@@ -70,8 +68,7 @@ namespace srrg2_core {
       if (vec) {
         for (size_t i = 0; i < vec->size(); ++i) {
           PropertyContainerIdentifiablePtr cont =
-            dynamic_pointer_cast<PropertyContainerIdentifiable>(
-              vec->getSharedPtr(i));
+            dynamic_pointer_cast<PropertyContainerIdentifiable>(vec->getSharedPtr(i));
           if (!cont)
             continue;
           connected.insert(std::make_pair(vec->name(), cont));
@@ -88,8 +85,7 @@ namespace srrg2_core {
         dynamic_cast<PropertyIdentifiablePtrInterface*>(it);
       if (single) {
         PropertyContainerIdentifiablePtr cont =
-          dynamic_pointer_cast<PropertyContainerIdentifiable>(
-            single->getSharedPtr());
+          dynamic_pointer_cast<PropertyContainerIdentifiable>(single->getSharedPtr());
         if (!cont)
           continue;
         if (reacheable.count(cont))
@@ -106,8 +102,7 @@ namespace srrg2_core {
         for (size_t i = 0; i < vec->size(); ++i) {
           IdentifiablePtr item = vec->getSharedPtr(i);
           PropertyContainerIdentifiablePtr cont =
-            std::dynamic_pointer_cast<PropertyContainerIdentifiable>(
-              vec->getSharedPtr(i));
+            std::dynamic_pointer_cast<PropertyContainerIdentifiable>(vec->getSharedPtr(i));
           if (!cont)
             continue;
           if (reacheable.count(cont))
